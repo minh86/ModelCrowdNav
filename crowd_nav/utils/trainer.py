@@ -43,7 +43,7 @@ class Trainer(object):
                 epoch_loss += loss.data.item()
 
             average_epoch_loss = epoch_loss / len(self.memory)
-            logging.debug('Average loss in epoch %d: %.2E', epoch, average_epoch_loss)
+            # logging.info('Average loss in epoch %d: %.2E', epoch, average_epoch_loss)
 
         return average_epoch_loss
 

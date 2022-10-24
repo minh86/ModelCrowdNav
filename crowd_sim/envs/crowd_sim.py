@@ -8,7 +8,9 @@ from numpy.linalg import norm
 from crowd_sim.envs.utils.human import Human
 from crowd_sim.envs.utils.info import *
 from crowd_sim.envs.utils.utils import point_to_segment_dist
-
+from crowd_sim.envs.utils.state import ObservableState
+from crowd_sim.envs.utils.action import ActionXY
+import torch
 
 class CrowdSim(gym.Env):
     metadata = {'render.modes': ['human']}
@@ -47,6 +49,10 @@ class CrowdSim(gym.Env):
         self.states = None
         self.action_values = None
         self.attention_weights = None
+        # for Model Crowd Sim
+        self.sim_world = None
+        self.device = None
+        self.look_ahead_in_sim = False
 
     def configure(self, config):
         self.config = config
@@ -69,6 +75,7 @@ class CrowdSim(gym.Env):
         else:
             raise NotImplementedError
         self.case_counter = {'train': 0, 'test': 0, 'val': 0}
+        self.look_ahead_in_sim = config.getboolean('env', 'look_ahead_in_sim')
 
         logging.info('human number: {}'.format(self.human_num))
         if self.randomize_attributes:
@@ -77,7 +84,7 @@ class CrowdSim(gym.Env):
             logging.info("Not randomize human's radius and preferred speed")
         logging.info('Training simulation: {}, test simulation: {}'.format(self.train_val_sim, self.test_sim))
         logging.info('Square width: {}, circle width: {}'.format(self.square_width, self.circle_radius))
-
+       
     def set_robot(self, robot):
         self.robot = robot
 
@@ -312,7 +319,10 @@ class CrowdSim(gym.Env):
         return ob
 
     def onestep_lookahead(self, action):
-        return self.step(action, update=False)
+        if not self.look_ahead_in_sim:
+            return self.step(action, update=False)
+        else:
+            return  self.step_in_sim(action)
 
     def step(self, action, update=True):
         """
@@ -418,6 +428,7 @@ class CrowdSim(gym.Env):
                 raise NotImplementedError
 
         return ob, reward, done, info
+    
 
     def render(self, mode='human', output_file=None):
         from matplotlib import animation
@@ -608,3 +619,68 @@ class CrowdSim(gym.Env):
                 plt.show()
         else:
             raise NotImplementedError
+
+    def step_in_sim(self, action):
+        # collision detection
+        dmin = float('inf')
+        collision = False
+        for i, human in enumerate(self.humans):
+            px = human.px - self.robot.px
+            py = human.py - self.robot.py
+            if self.robot.kinematics == 'holonomic':
+                vx = human.vx - action.vx
+                vy = human.vy - action.vy
+            else:
+                vx = human.vx - action.v * np.cos(action.r + self.robot.theta)
+                vy = human.vy - action.v * np.sin(action.r + self.robot.theta)
+            ex = px + vx * self.time_step
+            ey = py + vy * self.time_step
+            # closest distance between boundaries of two agents
+            closest_dist = point_to_segment_dist(px, py, ex, ey, 0, 0) - human.radius - self.robot.radius
+            if closest_dist < 0:
+                collision = True
+                # logging.debug("Collision: distance between robot and p{} is {:.2E}".format(i, closest_dist))
+                break
+            elif closest_dist < dmin:
+                dmin = closest_dist
+        # check if reaching the goal
+        end_position = np.array(self.robot.compute_position(action, self.time_step))
+        reaching_goal = norm(end_position - np.array(self.robot.get_goal_position())) < self.robot.radius
+
+        if self.global_time >= self.time_limit - 1:
+            reward = 0
+            done = True
+            info = Timeout()
+        elif collision:
+            reward = self.collision_penalty
+            done = True
+            info = Collision()
+        elif reaching_goal:
+            reward = self.success_reward
+            done = True
+            info = ReachGoal()
+        elif dmin < self.discomfort_dist:
+            # only penalize agent for getting too close if it's visible
+            # adjust the reward based on FPS
+            reward = (dmin - self.discomfort_dist) * self.discomfort_penalty_factor * self.time_step
+            done = False
+            info = Danger(dmin)
+        else:
+            reward = 0
+            done = False
+            info = Nothing()
+
+        # gen new position for humans from simulation model
+        current_s = [human.get_observable_state().getvalue() for human in self.humans]
+        current_s = torch.Tensor([current_s]).to(self.device)
+        current_s = current_s.view(current_s.size(0), -1)
+        new_v = self.sim_world(current_s)[0]
+        new_v = torch.reshape(new_v, (self.human_num, 2)).tolist()
+        ob = []
+        for i in range(self.human_num):
+            h = ObservableState(new_v[i][0] * self.humans[i].time_step + self.humans[i].px,
+                                new_v[i][1] * self.humans[i].time_step + self.humans[i].py,
+                                new_v[i][0], new_v[i][1], self.humans[i].radius)
+            ob.append(h)
+
+        return ob, reward, done, info

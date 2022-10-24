@@ -6,7 +6,8 @@ import os
 import shutil
 import torch
 import gym
-import git
+import sys
+sys.path.append('../')
 from crowd_sim.envs.utils.robot import Robot
 from crowd_nav.utils.trainer import Trainer
 from crowd_nav.utils.memory import ReplayMemory
@@ -16,16 +17,17 @@ from crowd_nav.policy.policy_factory import policy_factory
 
 def main():
     parser = argparse.ArgumentParser('Parse configuration file')
-    parser.add_argument('--env_config', type=str, default='configs/env.config')
-    parser.add_argument('--policy', type=str, default='cadrl')
-    parser.add_argument('--policy_config', type=str, default='configs/policy.config')
-    parser.add_argument('--train_config', type=str, default='configs/train.config')
-    parser.add_argument('--output_dir', type=str, default='data/output')
+    parser.add_argument('--env_config', type=str, default='configs_test/env.config')
+    parser.add_argument('--policy', type=str, default='sarl')
+    parser.add_argument('--policy_config', type=str, default='configs_test/policy.config')
+    parser.add_argument('--train_config', type=str, default='configs_test/train.config')
+    parser.add_argument('--output_dir', type=str, default='data/sarl5_baseline_no_qenv')
     parser.add_argument('--weights', type=str)
     parser.add_argument('--resume', default=False, action='store_true')
     parser.add_argument('--gpu', default=False, action='store_true')
     parser.add_argument('--debug', default=False, action='store_true')
-    args = parser.parse_args()
+    parser.add_argument('--device', type=str, default='cpu')
+    args = parser.parse_args([])
 
     # configure paths
     make_new_dir = True
@@ -54,9 +56,8 @@ def main():
     level = logging.INFO if not args.debug else logging.DEBUG
     logging.basicConfig(level=level, handlers=[stdout_handler, file_handler],
                         format='%(asctime)s, %(levelname)s: %(message)s', datefmt="%Y-%m-%d %H:%M:%S")
-    repo = git.Repo(search_parent_directories=True)
-    logging.info('Current git head hash code: %s'.format(repo.head.object.hexsha))
-    device = torch.device("cuda:0" if torch.cuda.is_available() and args.gpu else "cpu")
+    # device = torch.device("cuda:0" if torch.cuda.is_available() and args.gpu else "cpu")
+    device = torch.device(args.device)
     logging.info('Using device: %s', device)
 
     # configure policy

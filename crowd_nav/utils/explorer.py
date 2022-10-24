@@ -10,6 +10,7 @@ class Explorer(object):
         self.robot = robot
         self.device = device
         self.memory = memory
+        self.rawob = None
         self.gamma = gamma
         self.target_policy = target_policy
         self.target_model = None
@@ -19,7 +20,7 @@ class Explorer(object):
 
     # @profile
     def run_k_episodes(self, k, phase, update_memory=False, imitation_learning=False, episode=None,
-                       print_failure=False):
+                       print_failure=False,update_raw_ob=False):
         self.robot.policy.set_phase(phase)
         success_times = []
         collision_times = []
@@ -38,9 +39,17 @@ class Explorer(object):
             states = []
             actions = []
             rewards = []
-            while not done:
+            current_s = None
+            while not done:                        
                 action = self.robot.act(ob)
+                current_s = [tmpo.getvalue() for tmpo in ob]
                 ob, reward, done, info = self.env.step(action)
+                next_s = [tmpo.getvalue() for tmpo in ob]
+                
+                # Create training data for model-based
+                if update_raw_ob: # State , Action , Next State, Reward
+                    self.rawob.push((torch.Tensor(current_s),torch.Tensor(action),torch.Tensor(next_s), torch.tensor(reward))) 
+                
                 states.append(self.robot.policy.last_state)
                 actions.append(action)
                 rewards.append(reward)
