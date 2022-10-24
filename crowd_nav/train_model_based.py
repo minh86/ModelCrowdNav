@@ -38,7 +38,7 @@ parser.add_argument('--gpu', default=False, action='store_true')
 parser.add_argument('--debug', default=False, action='store_true')
 parser.add_argument('--device', type=str, default='cpu')
 
-args = parser.parse_args([])
+args = parser.parse_args()
 
 
 # In[3]:
