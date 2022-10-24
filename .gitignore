@@ -13,3 +13,7 @@ venv*/
 data/
 *.mp4
 videos/
+
+# config
+config_test/
+config/
