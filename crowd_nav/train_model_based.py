@@ -141,8 +141,7 @@ env_sim.sim_world = model_sim
 env.device = device
 env.sim_world = model_sim
 # model based things
-trainer_sim = Trainer_Sim(model_sim, explorer.rawob, device, ms_batchsize)
-trainer_sim.path = model_sim_checkpoint
+trainer_sim = Trainer_Sim(model_sim, explorer.rawob, device, ms_batchsize, model_sim_checkpoint)
 explorer_sim = Explorer(env_sim, robot, device, memory, policy.gamma, target_policy=policy)
 
 

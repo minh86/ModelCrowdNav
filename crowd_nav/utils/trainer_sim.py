@@ -12,7 +12,7 @@ import torch
 
 
 class Trainer_Sim(object):
-    def __init__(self, model, memory, device, batch_size):
+    def __init__(self, model, memory, device, batch_size, path):
         """
         Train the trainable model of a policy
         """
@@ -25,7 +25,7 @@ class Trainer_Sim(object):
         self.optimizer = None
         self.train_size = 0.8
         self.patience = 7
-        self.path = 'checkpoint.pt'
+        self.path = path
         self.early_stopping = EarlyStopping(patience=self.patience, path=self.path)
 
     def set_learning_rate(self, learning_rate):
