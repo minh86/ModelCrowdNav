@@ -43,6 +43,7 @@ class Trainer_Sim(object):
             self.data_loader = DataLoader(self.memory[:train_num], self.batch_size, shuffle=True)
             self.val_data_loader = DataLoader(self.memory[train_num:], self.batch_size, shuffle=True)
         self.early_stopping.counter = 0
+        self.early_stopping.early_stop = False
         for epoch in range(num_epochs):
             # Training
             self.model.train()

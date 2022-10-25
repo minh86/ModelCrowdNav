@@ -203,8 +203,7 @@ robot.print_info()
 trainer.set_learning_rate(rl_learning_rate)
 episode = 0 
 
-# while episode < train_episodes:
-while episode < 100:
+while episode < train_episodes:
     if args.resume:
         epsilon = epsilon_end
     else:
