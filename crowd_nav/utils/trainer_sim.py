@@ -84,7 +84,7 @@ class Trainer_Sim(object):
             self.early_stopping(valid_loss, self.model)
 
             if self.early_stopping.early_stop:
-                logging.info('Early stopping at epoch: %d', epoch)
+                # logging.info('Early stopping at epoch: %d', epoch)
                 break
 
         self.model.load_state_dict(torch.load(self.path))  # load best model
