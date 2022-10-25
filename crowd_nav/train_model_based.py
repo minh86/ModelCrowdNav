@@ -211,6 +211,7 @@ while episode < train_episodes:
             epsilon = epsilon_start + (epsilon_end - epsilon_start) / epsilon_decay * episode
         else:
             epsilon = epsilon_end
+    epsilon = epsilon_end # fix small epsilon
     robot.policy.set_epsilon(epsilon)
 
     # evaluate the model
