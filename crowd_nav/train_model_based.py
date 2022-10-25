@@ -37,6 +37,7 @@ parser.add_argument('--resume', default=False, action='store_true')
 parser.add_argument('--gpu', default=False, action='store_true')
 parser.add_argument('--debug', default=False, action='store_true')
 parser.add_argument('--device', type=str, default='cpu')
+parser.add_argument('--sim_only', default=False, action='store_true')
 
 args = parser.parse_args()
 
@@ -143,7 +144,7 @@ env.sim_world = model_sim
 # model based things
 trainer_sim = Trainer_Sim(model_sim, explorer.rawob, device, ms_batchsize, model_sim_checkpoint)
 explorer_sim = Explorer(env_sim, robot, device, memory, policy.gamma, target_policy=policy)
-
+sim_only = args.sim_only
 
 # In[4]:
 
@@ -216,13 +217,18 @@ while episode < train_episodes:
 
     # evaluate the model
     if episode % evaluation_interval == 0:
+        logging.info("Val in real...")
         policy.set_env(env)
         explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
+        logging.info("Val in sim...")
+        policy.set_env(env_sim)
+        explorer_sim.run_k_episodes(env.case_size['val'], 'val', episode=episode)
         
     # explore real to train sim
-    policy.set_env(env)
-    explorer.run_k_episodes(sample_episodes, 'train', update_memory=False, update_raw_ob=True)
-    trainer_sim.optimize_epoch(model_sim_epochs)
+    if sim_only == False:
+        policy.set_env(env)
+        explorer.run_k_episodes(sample_episodes, 'train', update_memory=False, update_raw_ob=True)
+        trainer_sim.optimize_epoch(model_sim_epochs)
 
     # explore sim to train policy
     policy.set_env(env_sim)
