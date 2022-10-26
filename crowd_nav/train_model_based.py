@@ -216,10 +216,10 @@ while episode < train_episodes:
     robot.policy.set_epsilon(epsilon)
 
     # evaluate the model
-    if episode % evaluation_interval == 0:
-        logging.info("Val in real...")
+    if episode % evaluation_interval == 0 and episode != 0:
+        logging.info("Test in real...")
         policy.set_env(env)
-        explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
+        explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode)
         logging.info("Val in sim...")
         policy.set_env(env_sim)
         explorer_sim.run_k_episodes(env.case_size['val'], 'val', episode=episode)
