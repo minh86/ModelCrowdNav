@@ -162,6 +162,7 @@ epsilon = epsilon_end  # fix small epsilon
 robot.policy.set_epsilon(epsilon)
 
 # explore real to train sim
+logging.info("Training world model...")
 explorer.run_k_episodes(sample_episodes_in_real, 'train', update_memory=False, update_raw_ob=True, stay=True)
 ms_valid_loss = trainer_sim.optimize_epoch(model_sim_epochs)
 # logging.info('Model-based env.  val_loss: {:.4f}'.format(ms_valid_loss))
