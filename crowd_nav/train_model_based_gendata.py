@@ -120,6 +120,7 @@ checkpoint_interval = train_config.getint('train', 'checkpoint_interval')
 init_episodes = train_config.getint('train_sim', 'init_episodes')
 model_sim_lr = train_config.getfloat('train_sim', 'model_sim_lr')
 model_sim_epochs = train_config.getint('train_sim', 'model_sim_epochs')
+sample_episodes_in_real = train_config.getint('train_sim', 'sample_episodes_in_real')
 ms_batchsize = train_config.getint('train_sim', 'ms_batchsize')
 sample_episodes_in_sim = train_config.getint('train_sim', 'sample_episodes_in_sim')
 
@@ -160,17 +161,16 @@ episode = 0
 epsilon = epsilon_end  # fix small epsilon
 robot.policy.set_epsilon(epsilon)
 
+# explore real to train sim
+explorer.run_k_episodes(sample_episodes_in_real, 'train', update_memory=False, update_raw_ob=True, stay=True)
+ms_valid_loss = trainer_sim.optimize_epoch(model_sim_epochs)
+# logging.info('Model-based env.  val_loss: {:.4f}'.format(ms_valid_loss))
+
 for episode in tqdm(range(train_episodes)):
     # evaluate the model
     if episode % evaluation_interval == 0 and episode != 0:
         logging.info("Val in real...")
         explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
-
-    # explore real to train sim
-
-    explorer.run_k_episodes(sample_episodes, 'train', update_memory=False, update_raw_ob=True, stay=True)
-    ms_valid_loss = trainer_sim.optimize_epoch(model_sim_epochs)
-    # logging.info('Model-based env.  val_loss: {:.4f}'.format(ms_valid_loss))
 
     # gen sim data and train
     data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=True)
