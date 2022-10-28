@@ -13,6 +13,7 @@ import shutil
 import torch
 import gym
 import sys, os, pickle
+from tqdm import tqdm
 
 sys.path.append('../')
 from crowd_sim.envs.utils.robot import Robot
@@ -155,11 +156,10 @@ trainer.set_learning_rate(rl_learning_rate)
 data_generator = DataGen(memory, robot, env_sim)
 data_generator.update_target_model(model)
 episode = 0
+epsilon = epsilon_end  # fix small epsilon
+robot.policy.set_epsilon(epsilon)
 
-while episode < train_episodes:
-    epsilon = epsilon_end  # fix small epsilon
-    robot.policy.set_epsilon(epsilon)
-
+for episode in tqdm(range(train_episodes)):
     # evaluate the model
     if episode % evaluation_interval == 0 and episode != 0:
         logging.info("Val in real...")
@@ -169,14 +169,13 @@ while episode < train_episodes:
 
     explorer.run_k_episodes(sample_episodes, 'train', update_memory=False, update_raw_ob=True, stay=True)
     ms_valid_loss = trainer_sim.optimize_epoch(model_sim_epochs)
-    logging.info('Model-based env.  val_loss: {:.4f}'.format(ms_valid_loss))
+    # logging.info('Model-based env.  val_loss: {:.4f}'.format(ms_valid_loss))
 
     # gen sim data and train
     data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=True)
-    # data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=False)
+    data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=False)
     average_loss = trainer.optimize_batch(train_batches)
-    logging.info('Policy model env. val_loss: {:.4f}'.format(average_loss))
-    episode += 1
+    # logging.info('Policy model env. val_loss: {:.4f}'.format(average_loss))
 
     if episode % target_update_interval == 0:
         data_generator.update_target_model(model)
@@ -184,10 +183,5 @@ while episode < train_episodes:
     if episode != 0 and episode % checkpoint_interval == 0:
         torch.save(model.state_dict(), rl_weight_file)
 
-# In[ ]:
-
-
 # final test
 explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode)
-
-# In[ ]:

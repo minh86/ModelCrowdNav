@@ -20,3 +20,4 @@ config/
 
 # notebook
 *.ipynb
+/crowd_nav/configs_test/
