@@ -53,6 +53,7 @@ class ModelCrowdSim(gym.Env):
         # for Model Crowd Sim
         self.sim_world = None
         self.device = None
+        self.add_noise = False
 
     def configure(self, config):
         self.config = config
@@ -375,7 +376,10 @@ class ModelCrowdSim(gym.Env):
         current_s = [human.get_observable_state().getvalue() for human in self.humans]
         current_s = torch.Tensor([current_s]).to(self.device)
         current_s = current_s.view(current_s.size(0), -1)
-        new_v = self.sim_world(current_s)[0]
+        if self.add_noise:
+            new_v = self.sim_world.noise_pre(current_s)[0]
+        else:
+            new_v = self.sim_world(current_s)[0]
         new_v = torch.reshape(new_v, (self.human_num, 2)).tolist()
         if update:
             # store state, action value and attention weights

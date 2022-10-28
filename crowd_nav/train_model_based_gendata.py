@@ -39,7 +39,7 @@ parser.add_argument('--resume', default=False, action='store_true')
 parser.add_argument('--gpu', default=False, action='store_true')
 parser.add_argument('--debug', default=False, action='store_true')
 parser.add_argument('--device', type=str, default='cpu')
-parser.add_argument('--sim_only', default=False, action='store_true')
+parser.add_argument('--add_noise', default=True, action='store_true')
 
 args = parser.parse_args()
 
@@ -132,7 +132,7 @@ explorer = Explorer(env, robot, device, memory, policy.gamma, target_policy=poli
 explorer.rawob = ReplayMemory(capacity)
 
 # config sim environment
-model_sim = autoencoder(env_config.getint('sim', 'human_num'));
+model_sim = mlp(env_config.getint('sim', 'human_num'));
 model_sim.to(device)
 env_sim = gym.make('ModelCrowdSim-v0')
 env_sim.configure(env_config)
@@ -141,10 +141,10 @@ env_sim.device = device
 env_sim.sim_world = model_sim
 env.device = device
 env.sim_world = model_sim
+env_sim.add_noise = args.add_noise
 # model based things
 trainer_sim = Trainer_Sim(model_sim, explorer.rawob, device, ms_batchsize, model_sim_checkpoint)
 explorer_sim = Explorer(env_sim, robot, device, memory, policy.gamma, target_policy=policy)
-sim_only = args.sim_only
 # datagen things
 robot.set_policy(policy)
 

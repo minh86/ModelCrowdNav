@@ -88,4 +88,5 @@ class Trainer_Sim(object):
                 break
 
         self.model.load_state_dict(torch.load(self.path))  # load best model
+        self.model.mse = 0-self.early_stopping.best_score
         return - self.early_stopping.best_score

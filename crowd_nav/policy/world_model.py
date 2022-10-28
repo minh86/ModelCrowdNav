@@ -1,3 +1,7 @@
+import math
+import random
+
+import torch
 from torch import nn
 
 class autoencoder(nn.Module):
@@ -34,7 +38,16 @@ class mlp(nn.Module):
             nn.ReLU(True), nn.Linear(12, num_human * 2),
             nn.Tanh()
         )
+        self.mse = 0
 
     def forward(self, x):
         x = self.mlp(x)
         return x
+
+    def noise_pre(self, x):
+        x = self.forward(x)
+        mean = math.sqrt(self.mse)
+        bias = torch.randn(x.shape) * mean
+
+        return x+bias
+
