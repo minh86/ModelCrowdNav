@@ -15,10 +15,9 @@ data/
 videos/
 
 # config
-config_test/
-config/
+configs_test/
+configs/
 
 # notebook
 *.ipynb
-/crowd_nav/configs_test/
-/crowd_nav/configs/
+
