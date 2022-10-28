@@ -39,6 +39,7 @@ class mlp(nn.Module):
             nn.Tanh()
         )
         self.mse = 0
+        self.device = None
 
     def forward(self, x):
         x = self.mlp(x)
@@ -47,7 +48,7 @@ class mlp(nn.Module):
     def noise_pre(self, x):
         x = self.forward(x)
         mean = math.sqrt(self.mse)
-        bias = torch.randn(x.shape) * mean
+        bias = (torch.randn(x.shape) * mean).to(self.device)
 
         return x+bias
 

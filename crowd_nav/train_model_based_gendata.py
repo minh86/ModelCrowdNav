@@ -134,6 +134,7 @@ explorer.rawob = ReplayMemory(capacity)
 # config sim environment
 model_sim = mlp(env_config.getint('sim', 'human_num'));
 model_sim.to(device)
+model_sim.device = device
 env_sim = gym.make('ModelCrowdSim-v0')
 env_sim.configure(env_config)
 env_sim.set_robot(robot)
