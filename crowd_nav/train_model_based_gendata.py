@@ -165,13 +165,16 @@ robot.policy.set_epsilon(epsilon)
 logging.info("Training world model...")
 explorer.run_k_episodes(sample_episodes_in_real, 'train', update_memory=False, update_raw_ob=True, stay=True)
 ms_valid_loss = trainer_sim.optimize_epoch(model_sim_epochs)
-# logging.info('Model-based env.  val_loss: {:.4f}'.format(ms_valid_loss))
-
+logging.info('Model-based env.  val_loss: {:.4f}'.format(ms_valid_loss))
+best_cumulative_rewards=  float('-inf')
 for episode in tqdm(range(train_episodes)):
     # evaluate the model
     if episode % evaluation_interval == 0 and episode != 0:
         logging.info("Val in real...")
-        explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
+        cumulative_rewards = explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
+        if cumulative_rewards > best_cumulative_rewards:
+            torch.save(model.state_dict(), rl_weight_file)
+            logging.info("Best RL model saved!")
 
     # gen sim data and train
     data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=True)
@@ -186,4 +189,6 @@ for episode in tqdm(range(train_episodes)):
         torch.save(model.state_dict(), rl_weight_file)
 
 # final test
+logging.info("Load best RL model for testing!")
+robot.policy.model.load_state_dict(torch.load(rl_weight_file))  # load best model
 explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode)
