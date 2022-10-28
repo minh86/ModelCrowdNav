@@ -16,7 +16,6 @@ videos/
 
 # config
 configs_test/
-configs/
 
 # notebook
 *.ipynb
