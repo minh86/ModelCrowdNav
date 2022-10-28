@@ -147,26 +147,8 @@ sim_only = args.sim_only
 # datagen things
 robot.set_policy(policy)
 
-# # Sample data for model training
-# il_episodes = train_config.getint('imitation_learning', 'il_episodes')
-#
-# # sample data from real env
-# explorer.run_k_episodes(il_episodes, 'train', update_memory=False, imitation_learning=True, update_raw_ob=True, stay=True)
-# logging.info('Experience set size: %d/%d', len(explorer.rawob), explorer.rawob.capacity)
-# # Saving memory
-# # logging.info("Saving memory: %s", mem_path)
-# # with open(mem_path, 'wb') as f:
-# #     pickle.dump(memory, f)
-# # logging.info("Saving raw observation: %s", rawob_path)
-# # with open(rawob_path, 'wb') as f:
-# #     pickle.dump(explorer.rawob, f)
-#
-# # training sim model
-# trainer_sim.set_learning_rate(model_sim_lr)
-# ms_valid_loss = trainer_sim.optimize_epoch(model_sim_epochs)
-# logging.info('Finish init model_sim. val_loss: {:.4f}'.format(ms_valid_loss))
-
 # reinforcement learning
+policy.set_env(env)
 trainer_sim.set_learning_rate(model_sim_lr)
 robot.print_info()
 trainer.set_learning_rate(rl_learning_rate)
@@ -181,18 +163,17 @@ while episode < train_episodes:
     # evaluate the model
     if episode % evaluation_interval == 0 and episode != 0:
         logging.info("Val in real...")
-        policy.set_env(env)
         explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
 
     # explore real to train sim
-    policy.set_env(env)
+
     explorer.run_k_episodes(sample_episodes, 'train', update_memory=False, update_raw_ob=True, stay=True)
     ms_valid_loss = trainer_sim.optimize_epoch(model_sim_epochs)
     logging.info('Model-based env.  val_loss: {:.4f}'.format(ms_valid_loss))
 
     # gen sim data and train
     data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=True)
-    data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=False)
+    # data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=False)
     average_loss = trainer.optimize_batch(train_batches)
     logging.info('Policy model env. val_loss: {:.4f}'.format(average_loss))
     episode += 1
@@ -207,7 +188,6 @@ while episode < train_episodes:
 
 
 # final test
-policy.set_env(env)
 explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode)
 
 # In[ ]:
