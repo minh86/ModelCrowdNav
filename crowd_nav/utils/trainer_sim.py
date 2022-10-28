@@ -88,4 +88,4 @@ class Trainer_Sim(object):
                 break
 
         self.model.load_state_dict(torch.load(self.path))  # load best model
-        return valid_loss
+        return - self.early_stopping.best_score
