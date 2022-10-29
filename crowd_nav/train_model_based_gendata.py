@@ -173,6 +173,7 @@ for episode in tqdm(range(train_episodes)):
         logging.info("Val in real...")
         cumulative_rewards = explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
         if cumulative_rewards > best_cumulative_rewards:
+            best_cumulative_rewards = cumulative_rewards
             torch.save(model.state_dict(), rl_weight_file)
             logging.info("Best RL model saved!")
 
