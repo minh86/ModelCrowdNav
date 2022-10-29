@@ -13,6 +13,7 @@ import shutil
 import torch
 import gym
 import sys, os, pickle
+
 sys.path.append('../')
 from crowd_sim.envs.utils.robot import Robot
 from crowd_nav.utils.trainer import Trainer
@@ -21,7 +22,6 @@ from crowd_nav.utils.memory import ReplayMemory
 from crowd_nav.utils.explorer import Explorer
 from crowd_nav.policy.policy_factory import policy_factory
 from crowd_nav.policy.world_model import *
-
 
 # In[2]:
 
@@ -38,9 +38,9 @@ parser.add_argument('--gpu', default=False, action='store_true')
 parser.add_argument('--debug', default=False, action='store_true')
 parser.add_argument('--device', type=str, default='cpu')
 parser.add_argument('--sim_only', default=False, action='store_true')
+parser.add_argument('--add_noise', default=True, action='store_true')
 
 args = parser.parse_args()
-
 
 # In[3]:
 
@@ -75,7 +75,7 @@ logging.basicConfig(level=level, handlers=[stdout_handler, file_handler],
 # repo = git.Repo(search_parent_directories=True)
 # logging.info('Current git head hash code: %s'.format(repo.head.object.hexsha))
 # device = torch.device("cuda:0" if torch.cuda.is_available() and args.gpu else "cpu")
-device = torch.device(args.device )
+device = torch.device(args.device)
 logging.info('Using device: %s', device)
 mem_path = os.path.join(args.output_dir, 'memory.data')
 rawob_path = os.path.join(args.output_dir, 'rawob.data')
@@ -98,8 +98,6 @@ env = gym.make('CrowdSim-v0')
 env.configure(env_config)
 robot = Robot(env_config, 'robot')
 env.set_robot(robot)
-
-
 
 # read training parameters
 if args.train_config is None:
@@ -133,7 +131,8 @@ explorer = Explorer(env, robot, device, memory, policy.gamma, target_policy=poli
 explorer.rawob = ReplayMemory(capacity)
 
 # config sim environment
-model_sim = mlp(env_config.getint('sim', 'human_num')); model_sim.to(device)
+model_sim = mlp(env_config.getint('sim', 'human_num'));
+model_sim.to(device)
 env_sim = gym.make('ModelCrowdSim-v0')
 env_sim.configure(env_config)
 env_sim.set_robot(robot)
@@ -141,6 +140,7 @@ env_sim.device = device
 env_sim.sim_world = model_sim
 env.device = device
 env.sim_world = model_sim
+env_sim.add_noise = args.add_noise
 # model based things
 trainer_sim = Trainer_Sim(model_sim, explorer.rawob, device, ms_batchsize, model_sim_checkpoint)
 explorer_sim = Explorer(env_sim, robot, device, memory, policy.gamma, target_policy=policy)
@@ -164,24 +164,21 @@ il_policy.safety_space = safety_space
 robot.set_policy(il_policy)
 
 # sample data from real env
-explorer.run_k_episodes(il_episodes, 'train', update_memory=False, imitation_learning=True,update_raw_ob=True)
+sample_episodes_in_real = train_config.getint('train_sim', 'sample_episodes_in_real')
+explorer.run_k_episodes(sample_episodes_in_real, 'train', update_memory=False, imitation_learning=True, update_raw_ob=True)
 
-# Saving memory
-logging.info("Saving memory: %s",mem_path)
-with open(mem_path, 'wb') as f:
-    pickle.dump(memory,f)
-logging.info("Saving raw observation: %s",rawob_path)
-with open(rawob_path, 'wb') as f:
-    pickle.dump(explorer.rawob,f)
-    
+# # Saving memory
+# logging.info("Saving memory: %s",mem_path)
+# with open(mem_path, 'wb') as f:
+#     pickle.dump(memory,f)
+# logging.info("Saving raw observation: %s",rawob_path)
+# with open(rawob_path, 'wb') as f:
+#     pickle.dump(explorer.rawob,f)
+
 # training sim model
 trainer_sim.set_learning_rate(model_sim_lr)
 ms_valid_loss = trainer_sim.optimize_epoch(model_sim_epochs)
 logging.info('Finish init model_sim. val_loss: {:.4f}'.format(ms_valid_loss))
-
-
-# In[5]:
-
 
 # imitation learning
 logging.info('Start imitation learning...')
@@ -193,27 +190,15 @@ logging.info('Finish imitation learning. Weights saved.')
 logging.info('Experience set size: %d/%d', len(memory), memory.capacity)
 explorer_sim.update_target_model(model)
 
-
-# In[6]:
-
-
 # reinforcement learning
 policy.set_env(env_sim)
 robot.set_policy(policy)
 robot.print_info()
 trainer.set_learning_rate(rl_learning_rate)
-episode = 0 
+episode = 0
 
 while episode < train_episodes:
-    if args.resume:
-        epsilon = epsilon_end
-    else:
-        if episode < epsilon_decay:
-            epsilon = epsilon_start + (epsilon_end - epsilon_start) / epsilon_decay * episode
-        else:
-            epsilon = epsilon_end
-    epsilon = epsilon_end # fix small epsilon
-    robot.policy.set_epsilon(epsilon)
+    robot.policy.set_epsilon(epsilon_end)  # fix small epsilon
 
     # evaluate the model
     if episode % evaluation_interval == 0 and episode != 0:
@@ -223,9 +208,9 @@ while episode < train_episodes:
         logging.info("Val in sim...")
         policy.set_env(env_sim)
         explorer_sim.run_k_episodes(env.case_size['val'], 'val', episode=episode)
-        
+
     # explore real to train sim
-    if sim_only == False:
+    if not sim_only:
         policy.set_env(env)
         explorer.run_k_episodes(sample_episodes, 'train', update_memory=False, update_raw_ob=True)
         trainer_sim.optimize_epoch(model_sim_epochs)
@@ -242,17 +227,8 @@ while episode < train_episodes:
     if episode != 0 and episode % checkpoint_interval == 0:
         torch.save(model.state_dict(), rl_weight_file)
 
-
-# In[ ]:
-
-
 # final test
 policy.set_env(env)
 explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode)
 
-
 # In[ ]:
-
-
-
-
