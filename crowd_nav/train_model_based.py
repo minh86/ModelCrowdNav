@@ -38,8 +38,8 @@ parser.add_argument('--gpu', default=False, action='store_true')
 parser.add_argument('--debug', default=False, action='store_true')
 parser.add_argument('--device', type=str, default='cpu')
 parser.add_argument('--sim_only', default=False, action='store_true')
-parser.add_argument('--add_noise', default=True, action='store_true')
-
+parser.add_argument('--add_noise', default=False, action='store_true')
+parser.add_argument('--dyna', default=False, action='store_true')
 args = parser.parse_args()
 
 # In[3]:
@@ -197,15 +197,15 @@ robot.set_policy(policy)
 robot.print_info()
 trainer.set_learning_rate(rl_learning_rate)
 episode = 0
-
+update_real_memory = False
 while episode < train_episodes:
     robot.policy.set_epsilon(epsilon_end)  # fix small epsilon
 
     # evaluate the model
     if episode % evaluation_interval == 0 and episode != 0:
-        logging.info("Test in real...")
+        logging.info("Val in real...")
         policy.set_env(env)
-        explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode)
+        explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
         logging.info("Val in sim...")
         policy.set_env(env_sim)
         explorer_sim.run_k_episodes(env.case_size['val'], 'val', episode=episode)
@@ -213,7 +213,10 @@ while episode < train_episodes:
     # explore real to train sim
     if not sim_only:
         policy.set_env(env)
-        explorer.run_k_episodes(sample_episodes, 'train', update_memory=False, update_raw_ob=True)
+        if args.dyna:
+            update_real_memory = True
+        explorer.run_k_episodes(sample_episodes, 'train', update_memory=update_real_memory, update_raw_ob=True)
+        model_sim.init_weight()
         trainer_sim.optimize_epoch(model_sim_epochs)
 
     # explore sim to train policy
@@ -224,6 +227,7 @@ while episode < train_episodes:
 
     if episode % target_update_interval == 0:
         explorer_sim.update_target_model(model)
+        explorer.update_target_model(model)
 
     if episode != 0 and episode % checkpoint_interval == 0:
         torch.save(model.state_dict(), rl_weight_file)

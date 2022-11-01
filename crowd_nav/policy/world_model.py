@@ -52,3 +52,7 @@ class mlp(nn.Module):
 
         return x+bias
 
+    def init_weight(self):
+        torch.nn.init.xavier_uniform(self.mlp.weight)
+
+
