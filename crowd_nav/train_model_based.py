@@ -190,6 +190,7 @@ torch.save(model.state_dict(), il_weight_file)
 logging.info('Finish imitation learning. Weights saved.')
 logging.info('Experience set size: %d/%d', len(memory), memory.capacity)
 explorer_sim.update_target_model(model)
+explorer.update_target_model(model)
 
 # reinforcement learning
 policy.set_env(env_sim)
