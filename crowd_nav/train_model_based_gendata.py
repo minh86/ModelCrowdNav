@@ -166,12 +166,13 @@ logging.info("Training world model...")
 explorer.run_k_episodes(sample_episodes_in_real, 'train', update_memory=False, update_raw_ob=True, stay=True)
 ms_valid_loss = trainer_sim.optimize_epoch(model_sim_epochs)
 logging.info('Model-based env.  val_loss: {:.4f}'.format(ms_valid_loss))
-best_cumulative_rewards=  float('-inf')
+best_cumulative_rewards = float('-inf')
+
 for episode in tqdm(range(train_episodes)):
     # evaluate the model
     if episode % evaluation_interval == 0 and episode != 0:
-        logging.info("Val in real...")
-        cumulative_rewards = explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
+        logging.info("Val in sim...")
+        cumulative_rewards = explorer_sim.run_k_episodes(env.case_size['val'], 'val', episode=episode)
         if cumulative_rewards > best_cumulative_rewards:
             best_cumulative_rewards = cumulative_rewards
             torch.save(model.state_dict(), rl_weight_file)

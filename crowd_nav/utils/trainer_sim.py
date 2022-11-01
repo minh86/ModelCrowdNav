@@ -21,6 +21,7 @@ class Trainer_Sim(object):
         self.criterion = nn.MSELoss().to(device)
         self.memory = memory
         self.data_loader = None
+        self.val_data_loader = None
         self.batch_size = batch_size
         self.optimizer = None
         self.train_size = 0.8

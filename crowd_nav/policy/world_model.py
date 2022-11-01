@@ -4,6 +4,12 @@ import random
 import torch
 from torch import nn
 
+
+def init_weight(m):
+    if type(m) == nn.Linear:
+        nn.init.xavier_uniform(m.weight)
+
+
 class autoencoder(nn.Module):
     def __init__(self, num_human, drop_rate=0.00):
         super(autoencoder, self).__init__()
@@ -50,9 +56,4 @@ class mlp(nn.Module):
         mean = math.sqrt(self.mse)
         bias = (torch.randn(x.shape) * mean).to(self.device)
 
-        return x+bias
-
-    def init_weight(self):
-        torch.nn.init.xavier_uniform(self.mlp.weight)
-
-
+        return x + bias

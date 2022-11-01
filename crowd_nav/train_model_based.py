@@ -217,7 +217,7 @@ while episode < train_episodes:
         if args.dyna:
             update_real_memory = True
         explorer.run_k_episodes(sample_episodes, 'train', update_memory=update_real_memory, update_raw_ob=True)
-        model_sim.init_weight()
+        model_sim.apply(init_weight) # reinit weight before training
         trainer_sim.optimize_epoch(model_sim_epochs)
 
     # explore sim to train policy
