@@ -40,6 +40,7 @@ parser.add_argument('--gpu', default=False, action='store_true')
 parser.add_argument('--debug', default=False, action='store_true')
 parser.add_argument('--device', type=str, default='cpu')
 parser.add_argument('--add_noise', default=True, action='store_true')
+parser.add_argument('--dyna', default=False, action='store_true')
 
 args = parser.parse_args()
 
@@ -162,13 +163,20 @@ epsilon = epsilon_end  # fix small epsilon
 robot.policy.set_epsilon(epsilon)
 
 # explore real to train sim
-logging.info("Training world model...")
-explorer.run_k_episodes(sample_episodes_in_real, 'train', update_memory=False, update_raw_ob=True, stay=True)
-ms_valid_loss = trainer_sim.optimize_epoch(model_sim_epochs)
-logging.info('Model-based env.  val_loss: {:.4f}'.format(ms_valid_loss))
+# logging.info("Training world model...")
+# explorer.run_k_episodes(sample_episodes_in_real, 'train', update_memory=False, update_raw_ob=True, stay=True)
+# ms_valid_loss = trainer_sim.optimize_epoch(model_sim_epochs)
+# logging.info('Model-based env.  val_loss: {:.4f}'.format(ms_valid_loss))
 best_cumulative_rewards = float('-inf')
+update_real_memory = False
 
 for episode in tqdm(range(train_episodes)):
+    # explore in real
+    if args.dyna:
+        update_real_memory = True
+    explorer.run_k_episodes(sample_episodes_in_real, 'train', update_memory=update_real_memory, update_raw_ob=True, stay=True)
+    ms_valid_loss = trainer_sim.optimize_epoch(model_sim_epochs)
+
     # evaluate the model
     if episode % evaluation_interval == 0 and episode != 0:
         logging.info("Val in sim...")
