@@ -187,9 +187,6 @@ for episode in tqdm(range(train_episodes)):
     if episode % target_update_interval == 0:
         data_generator.update_target_model(model)
 
-    if episode != 0 and episode % checkpoint_interval == 0:
-        torch.save(model.state_dict(), rl_weight_file)
-
 # final test
 logging.info("Load best RL model for testing!")
 robot.policy.model.load_state_dict(torch.load(rl_weight_file))  # load best model
