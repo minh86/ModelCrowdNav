@@ -201,5 +201,5 @@ for episode in tqdm(range(train_episodes)):
 # final test
 logging.info("Load best RL model for testing!")
 policy.set_env(env)
-robot.policy.model.load_state_dict(torch.load(rl_weight_file))  # load best model
+# robot.policy.model.load_state_dict(torch.load(rl_weight_file))  # load best model
 explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode)
