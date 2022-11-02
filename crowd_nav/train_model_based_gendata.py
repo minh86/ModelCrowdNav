@@ -39,7 +39,7 @@ parser.add_argument('--resume', default=False, action='store_true')
 parser.add_argument('--gpu', default=False, action='store_true')
 parser.add_argument('--debug', default=False, action='store_true')
 parser.add_argument('--device', type=str, default='cpu')
-parser.add_argument('--add_noise', default=True, action='store_true')
+parser.add_argument('--add_noise', default=False, action='store_true')
 parser.add_argument('--dyna', default=False, action='store_true')
 
 args = parser.parse_args()
