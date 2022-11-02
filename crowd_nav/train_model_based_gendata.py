@@ -41,6 +41,7 @@ parser.add_argument('--debug', default=False, action='store_true')
 parser.add_argument('--device', type=str, default='cpu')
 parser.add_argument('--add_noise', default=False, action='store_true')
 parser.add_argument('--dyna', default=False, action='store_true')
+parser.add_argument('--no_val', default=False, action='store_true')
 
 args = parser.parse_args()
 
@@ -180,7 +181,7 @@ for episode in tqdm(range(train_episodes)):
     ms_valid_loss = trainer_sim.optimize_epoch(model_sim_epochs)
 
     # evaluate the model
-    if episode % evaluation_interval == 0 and episode != 0:
+    if episode % evaluation_interval == 0 and episode != 0 and args.no_val == False:
         logging.info("Val in sim...")
         policy.set_env(env_sim)
         cumulative_rewards = explorer_sim.run_k_episodes(env.case_size['val'], 'val', episode=episode)
@@ -201,5 +202,6 @@ for episode in tqdm(range(train_episodes)):
 # final test
 logging.info("Load best RL model for testing!")
 policy.set_env(env)
-# robot.policy.model.load_state_dict(torch.load(rl_weight_file))  # load best model
+if not args.no_val: # load model from validation
+    robot.policy.model.load_state_dict(torch.load(rl_weight_file))  # load best model
 explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode)
