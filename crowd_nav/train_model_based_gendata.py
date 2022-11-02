@@ -175,6 +175,7 @@ for episode in tqdm(range(train_episodes)):
     # explore in real
     if args.dyna:
         update_real_memory = True
+    policy.set_env(env)
     explorer.run_k_episodes(sample_episodes_in_real, 'train', update_memory=update_real_memory, update_raw_ob=True, stay=True)
     ms_valid_loss = trainer_sim.optimize_epoch(model_sim_epochs)
 
