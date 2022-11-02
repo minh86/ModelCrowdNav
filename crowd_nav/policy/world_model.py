@@ -31,8 +31,10 @@ class autoencoder(nn.Module):
 
 
 class mlp(nn.Module):
-    def __init__(self, num_human, drop_rate=0.5):
+    def __init__(self, num_human, drop_rate=0.5, multihuman=True):
         super(mlp, self).__init__()
+        if not multihuman:
+            num_human=1
         self.mlp = nn.Sequential(
             nn.Linear(num_human * 4, 128),
             nn.ReLU(True),

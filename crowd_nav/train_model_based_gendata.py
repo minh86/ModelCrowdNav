@@ -133,11 +133,13 @@ explorer = Explorer(env, robot, device, memory, policy.gamma, target_policy=poli
 explorer.rawob = ReplayMemory(capacity)
 
 # config sim environment
-model_sim = mlp(env_config.getint('sim', 'human_num'));
+model_sim = mlp(env_config.getint('sim', 'human_num'),multihuman=policy.multiagent_training);
 model_sim.to(device)
 model_sim.device = device
 env_sim = gym.make('ModelCrowdSim-v0')
 env_sim.configure(env_config)
+if not policy.multiagent_training:
+    env_sim.human_num = 1
 env_sim.set_robot(robot)
 env_sim.device = device
 env_sim.sim_world = model_sim
@@ -179,6 +181,7 @@ for episode in tqdm(range(train_episodes)):
     # evaluate the model
     if episode % evaluation_interval == 0 and episode != 0:
         logging.info("Val in sim...")
+        policy.set_env(env_sim)
         cumulative_rewards = explorer_sim.run_k_episodes(env.case_size['val'], 'val', episode=episode)
         if cumulative_rewards > best_cumulative_rewards:
             best_cumulative_rewards = cumulative_rewards
@@ -196,5 +199,6 @@ for episode in tqdm(range(train_episodes)):
 
 # final test
 logging.info("Load best RL model for testing!")
+policy.set_env(env)
 robot.policy.model.load_state_dict(torch.load(rl_weight_file))  # load best model
 explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode)
