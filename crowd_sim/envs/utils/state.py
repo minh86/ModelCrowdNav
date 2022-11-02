@@ -38,9 +38,12 @@ class ObservableState(object):
 
     def __str__(self):
         return ' '.join([str(x) for x in [self.px, self.py, self.vx, self.vy, self.radius]])
+
     def getvalue (self):
         return [self.px, self.py, self.vx, self.vy]
 
+    def getvel (self):
+        return [ self.vx, self.vy]
 
 class JointState(object):
     def __init__(self, self_state, human_states):

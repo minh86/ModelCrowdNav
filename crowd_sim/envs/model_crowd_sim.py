@@ -180,8 +180,17 @@ class ModelCrowdSim(gym.Env):
                     break
             if not collide:
                 break
-        human.set(px, py, -px, -py, 0, 0, 0)
+        vx, vy = self.gen_init_v(px, py, -px, -py, human.v_pref)
+        human.set(px, py, -px, -py, vx, vy, 0)
         return human
+
+    def gen_init_v(self, px, py, gx, gy, v_pref):
+        vx = gx - px
+        vy = gy - py
+        vmax = abs(vx)
+        if vmax < abs(vy):
+            vmax = abs(vy)
+        return v_pref*vx/vmax, v_pref*vy/vmax
 
     def generate_square_crossing_human(self):
         human = Human(self.config, 'humans')
@@ -211,7 +220,8 @@ class ModelCrowdSim(gym.Env):
                     break
             if not collide:
                 break
-        human.set(px, py, gx, gy, 0, 0, 0)
+        vx, vy = self.gen_init_v(px, py, -px, -py, human.v_pref)
+        human.set(px, py, gx, gy, vx, vy, 0)
         return human
 
     def get_human_times(self):
@@ -281,7 +291,7 @@ class ModelCrowdSim(gym.Env):
                               'val': 0, 'test': self.case_capacity['val']}
             self.robot.set(0, -self.circle_radius, 0, self.circle_radius, 0, 0, np.pi / 2)
             if self.case_counter[phase] >= 0:
-                np.random.seed(counter_offset[phase] + self.case_counter[phase])
+                # np.random.seed(counter_offset[phase] + self.case_counter[phase])
                 if phase in ['train', 'val']:
                     human_num = self.human_num if self.robot.policy.multiagent_training else 1
                     self.generate_random_human_position(human_num=human_num, rule=self.train_val_sim)
@@ -372,15 +382,18 @@ class ModelCrowdSim(gym.Env):
             done = False
             info = Nothing()
 
-        # gen new position for humans from simulation model
-        current_s = [human.get_observable_state().getvalue() for human in self.humans]
-        current_s = torch.Tensor([current_s]).to(self.device)
-        current_s = current_s.view(current_s.size(0), -1)
-        if self.add_noise:
-            new_v = self.sim_world.noise_pre(current_s)[0]
-        else:
-            new_v = self.sim_world(current_s)[0]
-        new_v = torch.reshape(new_v, (self.human_num, 2)).tolist()
+        # # gen new position for humans from simulation model
+        # current_s = [human.get_observable_state().getvalue() for human in self.humans]
+        # current_s = torch.Tensor([current_s]).to(self.device)
+        # current_s = current_s.view(current_s.size(0), -1)
+        # if self.add_noise:
+        #     new_v = self.sim_world.noise_pre(current_s)[0]
+        # else:
+        #     new_v = self.sim_world(current_s)[0]
+        # new_v = torch.reshape(new_v, (self.human_num, 2)).tolist()
+
+        # gen new position for humans from v_pref
+        new_v = [human.get_observable_state().getvel() for human in self.humans]
         if update:
             # store state, action value and attention weights
             self.states.append([self.robot.get_full_state(), [human.get_full_state() for human in self.humans]])
@@ -392,14 +405,14 @@ class ModelCrowdSim(gym.Env):
             # update all agents
             self.robot.step(action)
             for i, _ in enumerate(self.humans):
-                self.humans[i].step(ActionXY(new_v[i][0],new_v[i][1]))
+                self.humans[i].step(ActionXY(new_v[i][0], new_v[i][1]))
                 # self.humans[i].px, self.humans[i].py, self.humans[i].vx, self.humans[i].vy = \
                 #     new_v[i][0] * self.humans[i].time_step + self.humans[i].px, \
                 #     new_v[i][1] * self.humans[i].time_step + self.humans[i].py, \
                 #     new_v[i][0], new_v[i][1]
-                    # np.around(new_pos[i][0], 4), np.around(new_pos[i][1], 4), \
-                    # np.around((new_pos[i][0] - self.humans[i].px) / self.humans[i].time_step, 4), \
-                    # np.around((new_pos[i][1] - self.humans[i].py) / self.humans[i].time_step, 4)
+                # np.around(new_pos[i][0], 4), np.around(new_pos[i][1], 4), \
+                # np.around((new_pos[i][0] - self.humans[i].px) / self.humans[i].time_step, 4), \
+                # np.around((new_pos[i][1] - self.humans[i].py) / self.humans[i].time_step, 4)
             self.global_time += self.time_step
 
             # compute the observation
@@ -595,13 +608,19 @@ class ModelCrowdSim(gym.Env):
 
             fig.canvas.mpl_connect('key_press_event', on_click)
             anim = animation.FuncAnimation(fig, update, frames=len(self.states), interval=self.time_step * 1000)
-            anim.running = True
+            # anim.running = True
 
-            if output_file is not None:
+            if output_file is not None and "mpg" in output_file:
                 ffmpeg_writer = animation.writers['ffmpeg']
                 writer = ffmpeg_writer(fps=8, metadata=dict(artist='Me'), bitrate=1800)
                 anim.save(output_file, writer=writer)
+            elif output_file is not None and "gif" in output_file:
+                anim.save(output_file, writer='pillow', fps=60)
             else:
                 plt.show()
+            try:
+                plt.close(fig)
+            except:
+                pass
         else:
             raise NotImplementedError

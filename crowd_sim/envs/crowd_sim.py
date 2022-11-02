@@ -611,12 +611,18 @@ class CrowdSim(gym.Env):
             anim = animation.FuncAnimation(fig, update, frames=len(self.states), interval=self.time_step * 1000)
             anim.running = True
 
-            if output_file is not None:
+            if output_file is not None and "mpg" in output_file:
                 ffmpeg_writer = animation.writers['ffmpeg']
                 writer = ffmpeg_writer(fps=8, metadata=dict(artist='Me'), bitrate=1800)
                 anim.save(output_file, writer=writer)
+            elif output_file is not None and "gif" in output_file:
+                anim.save(output_file, writer='pillow', fps=60)
             else:
                 plt.show()
+            try:
+                plt.close(fig)
+            except:
+                pass
         else:
             raise NotImplementedError
 
