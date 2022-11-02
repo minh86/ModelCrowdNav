@@ -118,7 +118,6 @@ epsilon_end = train_config.getfloat('train', 'epsilon_end')
 epsilon_decay = train_config.getfloat('train', 'epsilon_decay')
 checkpoint_interval = train_config.getint('train', 'checkpoint_interval')
 
-init_episodes = train_config.getint('train_sim', 'init_episodes')
 model_sim_lr = train_config.getfloat('train_sim', 'model_sim_lr')
 model_sim_epochs = train_config.getint('train_sim', 'model_sim_epochs')
 sample_episodes_in_real = train_config.getint('train_sim', 'sample_episodes_in_real')
