@@ -40,9 +40,9 @@ class Trainer_Sim(object):
         train_num = int(len(self.memory) * self.train_size)
         if self.optimizer is None:
             raise ValueError('Learning rate is not set!')
-        if self.data_loader is None:
-            self.data_loader = DataLoader(self.memory[:train_num], self.batch_size, shuffle=True)
-            self.val_data_loader = DataLoader(self.memory[train_num:], self.batch_size, shuffle=True)
+        # if self.data_loader is None:
+        self.data_loader = DataLoader(self.memory[:train_num], self.batch_size, shuffle=True)
+        self.val_data_loader = DataLoader(self.memory[train_num:], self.batch_size, shuffle=True)
         self.early_stopping.counter = 0
         self.early_stopping.early_stop = False
         for epoch in range(num_epochs):
