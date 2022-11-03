@@ -208,7 +208,7 @@ for episode in tqdm(range(train_episodes)):
         data_generator.update_target_model(model)
 
 # final test
-logging.info("Testing in %d episode...", env.case_size['test'])
+logging.info("Testing by %d episodes...", env.case_size['test'])
 policy.set_env(env)
 if not args.no_val: # load model from validation
     logging.info("Load best RL model")
