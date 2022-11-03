@@ -42,6 +42,7 @@ parser.add_argument('--device', type=str, default='cpu')
 parser.add_argument('--add_noise', default=False, action='store_true')
 parser.add_argument('--dyna', default=False, action='store_true')
 parser.add_argument('--no_val', default=False, action='store_true')
+parser.add_argument('--use_model_to_gen', default=False, action='store_true')
 
 args = parser.parse_args()
 
@@ -150,6 +151,8 @@ env_sim.sim_world = model_sim
 env.device = device
 env.sim_world = model_sim
 env_sim.add_noise = args.add_noise
+env_sim.use_model_to_gen = args.use_model_to_gen
+
 # model based things
 trainer_sim = Trainer_Sim(model_sim, explorer.rawob, device, ms_batchsize, model_sim_checkpoint)
 explorer_sim = Explorer(env_sim, robot, device, memory, policy.gamma, target_policy=policy)
@@ -205,9 +208,10 @@ for episode in tqdm(range(train_episodes)):
         data_generator.update_target_model(model)
 
 # final test
+logging.info("Testing in %d episode...", env.case_size['test'])
 policy.set_env(env)
 if not args.no_val: # load model from validation
-    logging.info("Load best RL model for testing!")
+    logging.info("Load best RL model")
     robot.policy.model.load_state_dict(torch.load(rl_weight_file))  # load best model
 explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode)
 video_tag="real"

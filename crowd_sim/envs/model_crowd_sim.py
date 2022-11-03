@@ -54,6 +54,7 @@ class ModelCrowdSim(gym.Env):
         self.sim_world = None
         self.device = None
         self.add_noise = False
+        self.use_model_to_gen = False
 
     def configure(self, config):
         self.config = config
@@ -382,18 +383,19 @@ class ModelCrowdSim(gym.Env):
             done = False
             info = Nothing()
 
-        # # gen new position for humans from simulation model
-        # current_s = [human.get_observable_state().getvalue() for human in self.humans]
-        # current_s = torch.Tensor([current_s]).to(self.device)
-        # current_s = current_s.view(current_s.size(0), -1)
-        # if self.add_noise:
-        #     new_v = self.sim_world.noise_pre(current_s)[0]
-        # else:
-        #     new_v = self.sim_world(current_s)[0]
-        # new_v = torch.reshape(new_v, (self.human_num, 2)).tolist()
-
-        # gen new position for humans from v_pref
-        new_v = [human.get_observable_state().getvel() for human in self.humans]
+        if self.use_model_to_gen:
+            # gen new position for humans from simulation model
+            current_s = [human.get_observable_state().getvalue() for human in self.humans]
+            current_s = torch.Tensor([current_s]).to(self.device)
+            current_s = current_s.view(current_s.size(0), -1)
+            if self.add_noise:
+                new_v = self.sim_world.noise_pre(current_s)[0]
+            else:
+                new_v = self.sim_world(current_s)[0]
+            new_v = torch.reshape(new_v, (self.human_num, 2)).tolist()
+        else:
+            # gen new position for humans from v_pref
+            new_v = [human.get_observable_state().getvel() for human in self.humans]
         if update:
             # store state, action value and attention weights
             self.states.append([self.robot.get_full_state(), [human.get_full_state() for human in self.humans]])
