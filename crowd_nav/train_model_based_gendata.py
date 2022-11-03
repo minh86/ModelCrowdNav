@@ -182,13 +182,13 @@ for episode in tqdm(range(train_episodes)):
     ms_valid_loss = trainer_sim.optimize_epoch(model_sim_epochs)
 
     # evaluate the model
-    if episode % evaluation_interval == 0 and episode != 0 and args.no_val == False:
+    if episode % evaluation_interval == 0 and episode != 0:
         logging.info("Val in sim...")
         policy.set_env(env_sim)
         video_tag = "sim"
         cumulative_rewards = explorer_sim.run_k_episodes(env.case_size['val'], 'val', episode=episode)
         explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_c" + str(episode) + ".gif"))
-        if cumulative_rewards > best_cumulative_rewards:
+        if cumulative_rewards > best_cumulative_rewards and args.no_val == False:
             best_cumulative_rewards = cumulative_rewards
             torch.save(model.state_dict(), rl_weight_file)
             logging.info("Best RL model saved!")
@@ -203,9 +203,9 @@ for episode in tqdm(range(train_episodes)):
         data_generator.update_target_model(model)
 
 # final test
-logging.info("Load best RL model for testing!")
 policy.set_env(env)
 if not args.no_val: # load model from validation
+    logging.info("Load best RL model for testing!")
     robot.policy.model.load_state_dict(torch.load(rl_weight_file))  # load best model
 explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode)
 video_tag="real"
