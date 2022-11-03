@@ -101,8 +101,8 @@ env = gym.make('CrowdSim-v0')
 env.configure(env_config)
 robot = Robot(env_config, 'robot')
 env.set_robot(robot)
-logging.info("Val size: ",env.case_size['val'])
-logging.info("Test size: ",env.case_size['test'])
+logging.info("Val size: %d",env.case_size['val'])
+logging.info("Test size: %d",env.case_size['test'])
 
 # read training parameters
 if args.train_config is None:
