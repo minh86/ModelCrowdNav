@@ -54,7 +54,7 @@ class ModelCrowdSim(gym.Env):
         self.sim_world = None
         self.device = None
         self.add_noise = False
-        self.use_model_to_gen = False
+        self.use_linear_to_gen = False
 
     def configure(self, config):
         self.config = config
@@ -333,7 +333,12 @@ class ModelCrowdSim(gym.Env):
     def onestep_lookahead(self, action):
         return self.step(action, update=False)
 
-    def step(self, action, update=True):
+    def set_current_state(self, obs, phase="train"):
+        self.reset(phase)
+        for i, ob in enumerate(obs):
+            self.humans[i].set(ob.px, ob.py, 0, 0, ob.vx, ob.vy, 0)
+
+    def step(self, action, update=True, new_v=None):
         # collision detection
         dmin = float('inf')
         collision = False
@@ -382,20 +387,21 @@ class ModelCrowdSim(gym.Env):
             reward = 0
             done = False
             info = Nothing()
-
-        if self.use_model_to_gen:
-            # gen new position for humans from simulation model
-            current_s = [human.get_observable_state().getvalue() for human in self.humans]
-            current_s = torch.Tensor([current_s]).to(self.device)
-            current_s = current_s.view(current_s.size(0), -1)
-            if self.add_noise:
-                new_v = self.sim_world.noise_pre(current_s)[0]
+        if new_v is None:
+            if self.use_linear_to_gen:
+                # gen new position for humans from v_pref
+                new_v = [human.get_observable_state().getvel() for human in self.humans]
             else:
-                new_v = self.sim_world(current_s)[0]
-            new_v = torch.reshape(new_v, (self.human_num, 2)).tolist()
-        else:
-            # gen new position for humans from v_pref
-            new_v = [human.get_observable_state().getvel() for human in self.humans]
+                # gen new position for humans from simulation model
+                current_s = [human.get_observable_state().getvalue() for human in self.humans]
+                current_s = torch.Tensor([current_s]).to(self.device)
+                current_s = current_s.reshape(current_s.size(0), -1)
+                if self.add_noise:
+                    new_v = self.sim_world.noise_pre(current_s)[0]
+                else:
+                    new_v = self.sim_world(current_s)[0]
+                new_v = torch.reshape(new_v, (self.human_num, 2)).tolist()
+
         if update:
             # store state, action value and attention weights
             self.states.append([self.robot.get_full_state(), [human.get_full_state() for human in self.humans]])

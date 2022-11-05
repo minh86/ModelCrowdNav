@@ -13,7 +13,8 @@ from crowd_sim.envs.utils.utils import point_to_segment_dist
 
 class DataGen(object):
 
-    def __init__(self, memory, robot, env):
+    def __init__(self, memory, robot, env, policy):
+        self.raw_memory = None
         self.action_space = None
         self.memory = memory
         self.robot = robot
@@ -29,11 +30,12 @@ class DataGen(object):
                                                         self.robot.v_pref, self.robot.theta
         self.full_state = FullState(px, py, vx, vy, radius, gx, gy, v_pref, theta)
         self.build_action_space()
+        self.policy = policy
 
     def update_target_model(self, target_model):
         self.target_model = copy.deepcopy(target_model)
 
-    def gen_new_episode(self, min_epi_length=7, max_epi_length=30, phase="train"):
+    def gen_new_episode(self, min_epi_length=30, max_epi_length=60, phase="train"):
         raw_states = []
         done = False
         i = 0
@@ -130,9 +132,10 @@ class DataGen(object):
         """
         v_pref = self.full_state.v_pref
         holonomic = True if self.policy.kinematics == 'holonomic' else False
-        speeds = [(np.exp((i + 1) / self.policy.speed_samples) - 1) / (np.e - 1) * v_pref for i in range(self.policy.speed_samples)]
+        speeds = [(np.exp((i + 1) / self.policy.speed_samples) - 1) / (np.e - 1) * v_pref for i in
+                  range(self.policy.speed_samples)]
         if holonomic:
-            rotations = np.linspace(0, np.pi, int(self.policy.rotation_samples/2), endpoint=False)
+            rotations = np.linspace(0, np.pi, int(self.policy.rotation_samples / 2), endpoint=False)
         else:
             rotations = np.linspace(-np.pi / 4, np.pi / 4, self.policy.rotation_samples)
 
@@ -157,8 +160,7 @@ class DataGen(object):
         if reach_goal:
             gx, gy = self.full_state.gx, self.full_state.gy
         else:
-            # hu = random.choice(reverse_states[0].human_states)
-            hu = reverse_states[0].human_states[0]
+            hu = reverse_states[0].human_states[0]  # human start position is random, then pick the first one
             gx, gy = hu.px, hu.py
         self.full_state.px, self.full_state.py, self.full_state.vx, self.full_state.vy = gx, gy, 0, 0
         reverse_states = reverse_states[1:]
@@ -178,19 +180,20 @@ class DataGen(object):
         return states_with_action[::-1], rewards[::-1]
 
     def correct_and_update(self, states, rewards, imitation_learning):
-        if rewards[0] == self.success_reward or rewards[0] == self.collision_penalty : # skip error episode
+        if rewards[0] == self.success_reward or rewards[0] == self.collision_penalty:  # skip error episode
             return
         end_epi = 0
         error_case = True
         for i in range(len(rewards)):
             if rewards[i] == self.collision_penalty or rewards[i] == self.success_reward:
-                end_epi = i+1
+                end_epi = i + 1
                 error_case = False
                 break
         if error_case:
             return
         self.update_memory(states[:end_epi], rewards[:end_epi], imitation_learning)
 
+    # gen data from imagination only
     def gen_new_data(self, num_sample, imitation_learning=False, reach_goal=True):
         for _ in range(num_sample):
             # Create random episode as robot stay the same position
@@ -199,6 +202,104 @@ class DataGen(object):
             states, rewards = self.edit_episode(states, reach_goal)
             # add data to memory
             self.correct_and_update(states, rewards, imitation_learning)
+
+    def someone_is_moving(self, ob):
+        min_speed = 1e-3
+        for h in ob:
+            if abs(h.vx) > min_speed or abs(h.vy) > min_speed:
+                return True
+        return False
+
+    # get index for final state
+    def get_episode_end_index(self):
+        indexes = []
+        for i, (ob, reward, done, info) in enumerate(self.raw_memory):
+            if done:
+                indexes.append(i)
+        return indexes
+
+    # get last real episode
+    def pick_last_real_episode(self, random_epi=False):
+        obs = []
+        if random_epi:
+            indexes = self.get_episode_end_index()
+            i = random.choice(indexes)
+            mem_states = self.raw_memory[:i]
+        else:
+            mem_states = self.raw_memory
+        for i, (ob, reward, done, info) in enumerate(mem_states[::-1]):
+            if self.someone_is_moving(ob):
+                obs.append(ob)
+            if done and i != 0:
+                break
+        return obs[::-1]
+
+    # create JointState from last real episode
+    def get_real_state(self, random_epi=False):
+        obs = self.pick_last_real_episode(random_epi=random_epi)
+        raw_states = []
+        for ob in obs:
+            state = JointState(self.full_state, ob)
+            raw_states.append(state)
+        return raw_states
+
+    # add sim states to real states
+    def create_imagine_on_real(self, states, min_end=7, min_sim_state=3, max_sim_state=15):
+        length = random.randrange(min_end, len(states)-5)
+        num_sim_state = random.randrange(min_sim_state, max_sim_state)
+        raw_states = states[:length]
+        human_states = raw_states[-1].human_states
+        self.env.set_current_state(human_states)
+
+        for _ in range(num_sim_state):
+            action = self.action_space[0]
+            ob, reward, done, info = self.env.step(action)
+            state = JointState(self.full_state, ob)
+            raw_states.append(state)
+
+        return raw_states
+
+    # gen data from real observation
+    def gen_new_data_from_real(self, num_sample, imitation_learning=False, reach_goal=True, add_sim=False):
+        for _ in range(num_sample):
+            # Get random real state from raw observation
+            states = self.get_real_state()
+            # Create few imagine state, branching from random real state
+            if add_sim:
+                states = self.create_imagine_on_real(states)
+            # start from end episode (goal or human (collision case)), make up random action for each state, collect reward
+            states, rewards = self.edit_episode(states, reach_goal)
+            # add data to memory
+            self.correct_and_update(states, rewards, imitation_learning)
+
+    # gen data by explore in mix reality
+    def gen_data_from_explore_in_mix(self, num_sample, phase="train", min_end=1):
+        for _ in range(num_sample):
+            # get real experience
+            raw_states = self.get_real_state(random_epi=True)
+            length = random.randrange(min_end, len(raw_states))
+            raw_states = raw_states[:length]
+            # set env to replay mode
+            human_states = raw_states[0].human_states
+            self.env.set_current_state(human_states)
+            # explore states and collect reward with robot policy
+            states = []
+            rewards = []
+            done = False
+            i=0
+            joined_state = JointState(self.env.robot.get_full_state(), raw_states[0].human_states)
+            while not done:
+                action = self.policy.predict(joined_state)
+                if i+1 < len(raw_states): # replay real experience
+                    next_h_action = [h.getvel() for h in raw_states[i+1].human_states]
+                else: # imagine next state when needed
+                    next_h_action = None
+                ob, reward, done, info = self.env.step(action, new_v = next_h_action)
+                states.append(self.transform(joined_state))
+                rewards.append(reward)
+                joined_state = JointState(self.env.robot.get_full_state(), ob)
+                i+=1
+            self.update_memory(states, rewards)
 
     def update_memory(self, states, rewards, imitation_learning=False):
         if self.memory is None or self.policy.gamma is None:

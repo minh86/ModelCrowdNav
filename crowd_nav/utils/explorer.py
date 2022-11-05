@@ -6,6 +6,7 @@ from crowd_sim.envs.utils.action import ActionRot, ActionXY
 
 class Explorer(object):
     def __init__(self, env, robot, device, memory=None, gamma=None, target_policy=None):
+        self.raw_memory = None
         self.env = env
         self.robot = robot
         self.device = device
@@ -17,6 +18,14 @@ class Explorer(object):
 
     def update_target_model(self, target_model):
         self.target_model = copy.deepcopy(target_model)
+
+    @staticmethod
+    def someone_is_moving(ob):
+        min_speed = 1e-3
+        for h in ob:
+            if abs(h.vx) > min_speed or abs(h.vy) > min_speed:
+                return True
+        return False
 
     # @profile
     def run_k_episodes(self, k, phase, update_memory=False, imitation_learning=False, episode=None,
@@ -49,10 +58,15 @@ class Explorer(object):
                 current_s = [tmpo.getvalue() for tmpo in ob]
                 ob, reward, done, info = self.env.step(action)
                 next_s = [tmpo.getvalue() for tmpo in ob]
-                
+
+                # Store observation for generating data
+                if self.raw_memory is not None:
+                    self.raw_memory.push((ob,reward,done,info))
+
                 # Create training data for model-based
                 if update_raw_ob: # State , Action , Next State, Reward
-                    self.rawob.push((torch.Tensor(current_s),torch.Tensor(action),torch.Tensor(next_s), torch.tensor(reward))) 
+                    if self.someone_is_moving(ob):
+                        self.rawob.push((torch.Tensor(current_s),torch.Tensor(action),torch.Tensor(next_s), torch.tensor(reward)))
                 
                 states.append(self.robot.policy.last_state)
                 actions.append(action)

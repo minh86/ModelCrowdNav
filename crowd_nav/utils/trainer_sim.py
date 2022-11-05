@@ -1,4 +1,6 @@
 import logging
+import random
+
 import torch.nn as nn
 import torch.optim as optim
 from torch.autograd import Variable
@@ -41,6 +43,7 @@ class Trainer_Sim(object):
         if self.optimizer is None:
             raise ValueError('Learning rate is not set!')
         # if self.data_loader is None:
+        random.shuffle(self.memory.memory)
         self.data_loader = DataLoader(self.memory[:train_num], self.batch_size, shuffle=True)
         self.val_data_loader = DataLoader(self.memory[train_num:], self.batch_size, shuffle=True)
         self.early_stopping.counter = 0
@@ -52,7 +55,7 @@ class Trainer_Sim(object):
                 # State , Action , Next State, Reward
                 cur_states, _, next_states, _ = data
                 next_states = next_states[:, :, 2:]
-                cur_states = cur_states.view(cur_states.size(0), -1)
+                cur_states = cur_states.reshape(cur_states.size(0), -1)
                 cur_states = Variable(cur_states).to(self.device)
                 next_states = Variable(next_states).to(self.device)
                 # ===================forward=====================
@@ -69,7 +72,7 @@ class Trainer_Sim(object):
             for data in self.val_data_loader:
                 cur_states, _, next_states, _ = data
                 next_states = next_states[:, :, 2:]
-                cur_states = cur_states.view(cur_states.size(0), -1)
+                cur_states = cur_states.reshape(cur_states.size(0), -1)
                 cur_states = Variable(cur_states).to(self.device)
                 next_states = Variable(next_states).to(self.device)
                 # ===================forward=====================

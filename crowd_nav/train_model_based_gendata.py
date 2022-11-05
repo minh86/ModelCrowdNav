@@ -42,7 +42,7 @@ parser.add_argument('--device', type=str, default='cpu')
 parser.add_argument('--add_noise', default=False, action='store_true')
 parser.add_argument('--dyna', default=False, action='store_true')
 parser.add_argument('--no_val', default=False, action='store_true')
-parser.add_argument('--use_model_to_gen', default=False, action='store_true')
+parser.add_argument('--use_linear_to_gen', default=False, action='store_true')
 
 args = parser.parse_args()
 
@@ -128,6 +128,7 @@ sample_episodes_in_real = train_config.getint('train_sim', 'sample_episodes_in_r
 sample_episodes_in_real_before_train = train_config.getint('train_sim', 'sample_episodes_in_real_before_train')
 ms_batchsize = train_config.getint('train_sim', 'ms_batchsize')
 sample_episodes_in_sim = train_config.getint('train_sim', 'sample_episodes_in_sim')
+init_train_episodes = train_config.getint('train_sim', 'init_train_episodes')
 
 # configure trainer and explorer
 memory = ReplayMemory(capacity)
@@ -136,6 +137,7 @@ batch_size = train_config.getint('trainer', 'batch_size')
 trainer = Trainer(model, memory, device, batch_size)
 explorer = Explorer(env, robot, device, memory, policy.gamma, target_policy=policy)
 explorer.rawob = ReplayMemory(capacity)
+explorer.raw_memory = ReplayMemory(capacity)
 
 # config sim environment
 model_sim = mlp(env_config.getint('sim', 'human_num'),multihuman=policy.multiagent_training);
@@ -151,7 +153,7 @@ env_sim.sim_world = model_sim
 env.device = device
 env.sim_world = model_sim
 env_sim.add_noise = args.add_noise
-env_sim.use_model_to_gen = args.use_model_to_gen
+env_sim.use_linear_to_gen = args.use_linear_to_gen
 
 # model based things
 trainer_sim = Trainer_Sim(model_sim, explorer.rawob, device, ms_batchsize, model_sim_checkpoint)
@@ -164,47 +166,95 @@ policy.set_env(env)
 trainer_sim.set_learning_rate(model_sim_lr)
 robot.print_info()
 trainer.set_learning_rate(rl_learning_rate)
-data_generator = DataGen(memory, robot, env_sim)
+data_generator = DataGen(memory, robot, env_sim, policy)
 data_generator.update_target_model(model)
+data_generator.raw_memory = explorer.raw_memory
 episode = 0
 epsilon = epsilon_end  # fix small epsilon
 robot.policy.set_epsilon(epsilon)
 
-# # explore real to train sim
-# logging.info("Training world model...")
-# explorer.run_k_episodes(sample_episodes_in_real_before_train, 'train', update_memory=False, update_raw_ob=True, stay=True)
-# ms_valid_loss = trainer_sim.optimize_epoch(model_sim_epochs)
-# logging.info('Model-based env.  val_loss: {:.4f}'.format(ms_valid_loss))
+# ============  init and collect data  ===============
+# explore real to train sim
+logging.info("Collect data and init phase...")
+explorer.run_k_episodes(sample_episodes_in_real_before_train, 'train', update_memory=False, update_raw_ob=True, stay=True)
+logging.info("Training world model...")
+ms_valid_loss = trainer_sim.optimize_epoch(model_sim_epochs)
+logging.info('Model-based env.  val_loss: {:.4f}'.format(ms_valid_loss))
 
 best_cumulative_rewards = float('-inf')
 update_real_memory = False
-for episode in tqdm(range(train_episodes)):
-    # explore in real
-    if args.dyna:
-        update_real_memory = True
-    policy.set_env(env)
-    explorer.run_k_episodes(sample_episodes_in_real, 'train', update_memory=update_real_memory, update_raw_ob=True, stay=True)
-    ms_valid_loss = trainer_sim.optimize_epoch(model_sim_epochs)
+for episode in tqdm(range(init_train_episodes)):
+    # # explore in real
+    # if args.dyna:
+    #     update_real_memory = True
+    # policy.set_env(env)
+    # explorer.run_k_episodes(sample_episodes_in_real, 'train', update_memory=update_real_memory, update_raw_ob=True, stay=True)
+    # ms_valid_loss = trainer_sim.optimize_epoch(model_sim_epochs)
+
+    # gen sim data and train
+    data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=True)
+    data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=False)
+
+    # # gen sim trajectories data from real data
+    # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=True)
+    # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=False)
+    # # gen sim trajectories data from mix sim-real data
+    # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=True, add_sim=True)
+    # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=False, add_sim=True)
+
+    average_loss = trainer.optimize_batch(train_batches)
+    # logging.info('Policy model env. val_loss: {:.4f}'.format(average_loss))
 
     # evaluate the model
-    if episode % evaluation_interval == 0 and episode != 0:
-        logging.info("Val in sim...")
-        policy.set_env(env_sim)
-        video_tag = "sim"
-        cumulative_rewards = explorer_sim.run_k_episodes(env.case_size['val'], 'val', episode=episode)
-        explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_c" + str(episode) + ".gif"))
+    if (episode+1) % evaluation_interval == 0 and episode != 0:
+        logging.info("Val in real...")
+        policy.set_env(env)
+        video_tag = "im_val"
+        cumulative_rewards = explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
+        explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
         if cumulative_rewards > best_cumulative_rewards and args.no_val == False:
             best_cumulative_rewards = cumulative_rewards
             torch.save(model.state_dict(), rl_weight_file)
             logging.info("Best RL model saved!")
 
-    # gen sim data and train
-    data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=True)
-    data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=False)
+    # update target model
+    if (episode+1) % target_update_interval == 0:
+        data_generator.update_target_model(model)
+
+# ==============   gen data by explorer in mix reality  ================
+logging.info("Training phase...")
+best_cumulative_rewards = float('-inf')
+logging.info("Load best RL model")
+robot.policy.model.load_state_dict(torch.load(rl_weight_file))  # load best model
+data_generator.update_target_model(robot.policy.model)
+for episode in tqdm(range(train_episodes)):
+
+    # retrain world model before gen data
+    model_sim.apply(init_weight)  # reinit weight before training
+    ms_valid_loss = trainer_sim.optimize_epoch(model_sim_epochs)
+
+    data_generator.gen_data_from_explore_in_mix(sample_episodes_in_sim)
+    if (episode + 1) % evaluation_interval == 0 and episode != 1:
+        video_tag = "train"
+        explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
+
     average_loss = trainer.optimize_batch(train_batches)
     # logging.info('Policy model env. val_loss: {:.4f}'.format(average_loss))
 
-    if episode % target_update_interval == 0:
+    # evaluate the model
+    if (episode + 1) % evaluation_interval == 0 and episode != 1:
+        logging.info("Val in real...")
+        policy.set_env(env)
+        video_tag = "exp_val"
+        cumulative_rewards = explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
+        explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
+        if cumulative_rewards > best_cumulative_rewards and args.no_val == False:
+            best_cumulative_rewards = cumulative_rewards
+            torch.save(model.state_dict(), rl_weight_file)
+            logging.info("Best RL model saved!")
+
+    # update target model
+    if (episode+1) % target_update_interval == 0:
         data_generator.update_target_model(model)
 
 # final test
@@ -214,5 +264,5 @@ if not args.no_val: # load model from validation
     logging.info("Load best RL model")
     robot.policy.model.load_state_dict(torch.load(rl_weight_file))  # load best model
 explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode)
-video_tag="real"
-explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_c" + str(episode) + ".gif"))
+video_tag="test"
+explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))

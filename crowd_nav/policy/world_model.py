@@ -7,7 +7,7 @@ from torch import nn
 
 def init_weight(m):
     if type(m) == nn.Linear:
-        nn.init.xavier_uniform(m.weight)
+        nn.init.xavier_uniform_(m.weight)
 
 
 class autoencoder(nn.Module):
