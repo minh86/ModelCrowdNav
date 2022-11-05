@@ -206,7 +206,7 @@ for episode in tqdm(range(init_train_episodes)):
     # logging.info('Policy model env. val_loss: {:.4f}'.format(average_loss))
 
     # evaluate the model
-    if (episode+1) % evaluation_interval == 0 and episode != 0:
+    if (episode+1) % evaluation_interval == 0 and episode != 0 and (episode+1) / evaluation_interval != 1:
         logging.info("Val in real...")
         policy.set_env(env)
         video_tag = "im_val"
