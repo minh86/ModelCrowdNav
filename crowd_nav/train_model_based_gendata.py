@@ -235,7 +235,7 @@ for episode in tqdm(range(train_episodes)):
 
     # let's explore mix reality!
     data_generator.gen_data_from_explore_in_mix(sample_episodes_in_sim)
-    if (episode + 1) % (5*evaluation_interval) == 0 and episode != 1:
+    if (episode + 1) % (50) == 0 and episode != 1:
         video_tag = "train"
         explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
 
@@ -243,7 +243,7 @@ for episode in tqdm(range(train_episodes)):
     # logging.info('Policy model env. val_loss: {:.4f}'.format(average_loss))
 
     # evaluate the model
-    if (episode + 1) % (10*evaluation_interval) == 0 and episode != 1:
+    if (episode + 1) % (100) == 0 and episode != 1:
         logging.info("Val in real...")
         policy.set_env(env)
         video_tag = "exp_val"
