@@ -274,6 +274,8 @@ class DataGen(object):
 
     # gen data by explore in mix reality
     def gen_data_from_explore_in_mix(self, num_sample, phase="train", min_end=1):
+        reach_goal = 0
+        collision = 0
         for _ in range(num_sample):
             # get real experience
             raw_states = self.get_real_state(random_epi=True)
@@ -288,6 +290,7 @@ class DataGen(object):
             done = False
             i=0
             joined_state = JointState(self.env.robot.get_full_state(), raw_states[0].human_states)
+            info = None
             while not done:
                 action = self.policy.predict(joined_state)
                 if i+1 < len(raw_states): # replay real experience
@@ -300,6 +303,14 @@ class DataGen(object):
                 joined_state = JointState(self.env.robot.get_full_state(), ob)
                 i+=1
             self.update_memory(states, rewards)
+            if isinstance(info, ReachGoal):
+                reach_goal+=1
+            if isinstance(info, Collision):
+                collision+=1
+        success_rate = reach_goal / num_sample
+        collision_rate = collision / num_sample
+        logging.info('Exp in mix has success rate: {:.2f}, collision rate: {:.2f}'
+                     .format(success_rate, collision_rate))
 
     def update_memory(self, states, rewards, imitation_learning=False):
         if self.memory is None or self.policy.gamma is None:

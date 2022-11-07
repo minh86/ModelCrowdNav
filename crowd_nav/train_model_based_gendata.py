@@ -205,17 +205,17 @@ for episode in tqdm(range(init_train_episodes)):
     average_loss = trainer.optimize_batch(train_batches)
     # logging.info('Policy model env. val_loss: {:.4f}'.format(average_loss))
 
-    # evaluate the model
-    if (episode+1) % evaluation_interval == 0 and episode != 0 and (episode+1) / evaluation_interval != 1:
-        logging.info("Val in real...")
-        policy.set_env(env)
-        video_tag = "im_val"
-        cumulative_rewards = explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
-        explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
-        if cumulative_rewards > best_cumulative_rewards and args.no_val == False:
-            best_cumulative_rewards = cumulative_rewards
-            torch.save(model.state_dict(), rl_weight_file)
-            logging.info("Best RL model saved!")
+    # # evaluate the model
+    # if (episode+1) % evaluation_interval == 0 and episode != 0 :
+    #     logging.info("Val in real...")
+    #     policy.set_env(env)
+    #     video_tag = "im_val"
+    #     cumulative_rewards = explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
+    #     explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
+    #     if cumulative_rewards > best_cumulative_rewards and args.no_val == False:
+    #         best_cumulative_rewards = cumulative_rewards
+    #         torch.save(model.state_dict(), rl_weight_file)
+    #         logging.info("Best RL model saved!")
 
     # update target model
     if (episode+1) % target_update_interval == 0:
@@ -224,8 +224,8 @@ for episode in tqdm(range(init_train_episodes)):
 # ==============   gen data by explorer in mix reality  ================
 logging.info("Training phase...")
 best_cumulative_rewards = float('-inf')
-logging.info("Load best RL model")
-robot.policy.model.load_state_dict(torch.load(rl_weight_file))  # load best model
+# logging.info("Load best RL model")
+# robot.policy.model.load_state_dict(torch.load(rl_weight_file))  # load best model
 data_generator.update_target_model(robot.policy.model)
 for episode in tqdm(range(train_episodes)):
 
