@@ -192,8 +192,8 @@ for episode in tqdm(range(init_train_episodes)):
     # ms_valid_loss = trainer_sim.optimize_epoch(model_sim_epochs)
 
     # gen sim data and train
-    data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=True)
-    data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=False)
+    data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=True, imitation_learning=True)
+    data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=False, imitation_learning=True)
 
     # # gen sim trajectories data from real data
     # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=True)
