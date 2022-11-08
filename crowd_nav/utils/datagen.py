@@ -309,8 +309,10 @@ class DataGen(object):
                 collision+=1
         success_rate = reach_goal / num_sample
         collision_rate = collision / num_sample
+        timeout_rate = (num_sample - reach_goal - collision) / num_sample
         logging.info('Exp in mix has success rate: {:.2f}, collision rate: {:.2f}'
                      .format(success_rate, collision_rate))
+        return success_rate, collision_rate, timeout_rate
 
     def update_memory(self, states, rewards, imitation_learning=False):
         if self.memory is None or self.policy.gamma is None:

@@ -14,6 +14,7 @@ import torch
 import gym
 import sys, os, pickle
 from tqdm import tqdm
+import neptune.new as neptune
 
 sys.path.append('../')
 from crowd_sim.envs.utils.robot import Robot
@@ -123,12 +124,19 @@ epsilon_decay = train_config.getfloat('train', 'epsilon_decay')
 checkpoint_interval = train_config.getint('train', 'checkpoint_interval')
 
 model_sim_lr = train_config.getfloat('train_sim', 'model_sim_lr')
-model_sim_epochs = train_config.getint('train_sim', 'model_sim_epochs')
+train_world_epochs = train_config.getint('train_sim', 'train_world_epochs')
 sample_episodes_in_real = train_config.getint('train_sim', 'sample_episodes_in_real')
 sample_episodes_in_real_before_train = train_config.getint('train_sim', 'sample_episodes_in_real_before_train')
 ms_batchsize = train_config.getint('train_sim', 'ms_batchsize')
 sample_episodes_in_sim = train_config.getint('train_sim', 'sample_episodes_in_sim')
 init_train_episodes = train_config.getint('train_sim', 'init_train_episodes')
+api_token = train_config.get('neptune', 'api_token')
+
+# ------  neptune params
+params ={"output_dir":args.output_dir, "model_sim_lr":model_sim_lr, "train_world_epochs": train_world_epochs,
+         "sample_episodes_in_real_before_train": sample_episodes_in_real_before_train,
+         "sample_episodes_in_sim": sample_episodes_in_sim, "init_train_episodes":init_train_episodes,
+         "train_episodes":train_episodes,"target_update_interval":target_update_interval}
 
 # configure trainer and explorer
 memory = ReplayMemory(capacity)
@@ -173,12 +181,20 @@ episode = 0
 epsilon = epsilon_end  # fix small epsilon
 robot.policy.set_epsilon(epsilon)
 
+# ============== neptune things  ================
+run = neptune.init_run(
+    project="minh86/CrowdNav",
+    api_token=api_token,
+)  # your credentials
+run["parameters"] = params
+
+
 # ============  init and collect data  ===============
 # explore real to train sim
 logging.info("Collect data and init phase...")
 explorer.run_k_episodes(sample_episodes_in_real_before_train, 'train', update_memory=False, update_raw_ob=True, stay=True)
 logging.info("Training world model...")
-ms_valid_loss = trainer_sim.optimize_epoch(model_sim_epochs)
+ms_valid_loss = trainer_sim.optimize_epoch(train_world_epochs)
 logging.info('Model-based env.  val_loss: {:.4f}'.format(ms_valid_loss))
 
 best_cumulative_rewards = float('-inf')
@@ -189,7 +205,7 @@ for episode in tqdm(range(init_train_episodes)):
     #     update_real_memory = True
     # policy.set_env(env)
     # explorer.run_k_episodes(sample_episodes_in_real, 'train', update_memory=update_real_memory, update_raw_ob=True, stay=True)
-    # ms_valid_loss = trainer_sim.optimize_epoch(model_sim_epochs)
+    # ms_valid_loss = trainer_sim.optimize_epoch(train_world_epochs)
 
     # gen sim data and train
     data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=True, imitation_learning=True)
@@ -203,6 +219,7 @@ for episode in tqdm(range(init_train_episodes)):
     # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=False, add_sim=True)
 
     average_loss = trainer.optimize_batch(train_batches)
+    run["train_world_model_1/loss"].log(average_loss) # log to neptune
     # logging.info('Policy model env. val_loss: {:.4f}'.format(average_loss))
 
     # # evaluate the model
@@ -230,20 +247,26 @@ data_generator.update_target_model(robot.policy.model)
 for episode in tqdm(range(train_episodes)):
 
     # retrain world model before gen data
-    model_sim.apply(init_weight)  # reinit weight before training
-    ms_valid_loss = trainer_sim.optimize_epoch(model_sim_epochs)
+    # model_sim.apply(init_weight)  # reinit weight before training
+    ms_valid_loss = trainer_sim.optimize_epoch(train_world_epochs)
+    run["train_world_model_2/loss"].log(ms_valid_loss)  # log to neptune
 
     # let's explore mix reality!
-    data_generator.gen_data_from_explore_in_mix(sample_episodes_in_sim)
+    success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explore_in_mix(sample_episodes_in_sim)
+    run["exp_in_mix/success_rate"].log(success_rate)  # log to neptune
+    run["exp_in_mix/collision_rate"].log(collision_rate)  # log to neptune
+    run["exp_in_mix/timeout_rate"].log(timeout_rate)  # log to neptune
+
     if (episode + 1) % (50) == 0 and episode != 1:
         video_tag = "train"
         explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
 
     average_loss = trainer.optimize_batch(train_batches)
+    run["train_value_network/loss"].log(average_loss)  # log to neptune
     # logging.info('Policy model env. val_loss: {:.4f}'.format(average_loss))
 
     # evaluate the model
-    if (episode + 1) % (100) == 0 and episode != 1:
+    if (episode + 1) % (100) == 0 and episode != 1 and not args.no_val:
         logging.info("Val in real...")
         policy.set_env(env)
         video_tag = "exp_val"
@@ -267,3 +290,4 @@ if not args.no_val: # load model from validation
 explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode)
 video_tag="test"
 explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
+run.stop()
