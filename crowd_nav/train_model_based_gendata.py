@@ -220,7 +220,7 @@ for episode in tqdm(range(init_train_episodes)):
     # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=False, add_sim=True)
 
     average_loss = trainer.optimize_batch(train_batches)
-    run["train_world_model_1/loss"].log(average_loss) # log to neptune
+    run["train_value_network_init/loss"].log(average_loss) # log to neptune
     # logging.info('Policy model env. val_loss: {:.4f}'.format(average_loss))
 
     # # evaluate the model
