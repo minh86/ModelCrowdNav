@@ -78,8 +78,8 @@ class AttentionWorld(nn.Module):
             self.attention = mlp(mlp1_dims[-1] * 2, attention_dims)
         else:
             self.attention = mlp(mlp1_dims[-1], attention_dims)
-        mlp3_input_dim = mlp2_dims[-1] + input_dim
-        self.mlp3 = mlp(mlp3_input_dim, mlp3_dims)
+        self.mlp3_input_dim = mlp2_dims[-1] + input_dim
+        self.mlp3 = mlp(self.mlp3_input_dim, mlp3_dims)
         self.attention_weights = None
         self.output_func = nn.Tanh()
 
@@ -108,10 +108,11 @@ class AttentionWorld(nn.Module):
         features = mlp2_output.view(size[0], size[1], -1)
         # for converting to onnx
         # expanded_weights = torch.cat([torch.zeros(weights.size()).copy_(weights) for _ in range(50)], dim=2)
-        weighted_feature = torch.sum(torch.mul(weights, features), dim=1)
-
+        mul = torch.mul(weights, features)
+        weighted_feature = torch.sum(mul, dim=1, keepdim=True)
+        mul_weighted_feature = torch.cat([weighted_feature]*size[1], dim=1)
         # concatenate agent's state with global weighted humans' state
-        joint_state = torch.cat([state, weighted_feature], dim=2)
-        actions = self.mlp3(joint_state)
-        actions = self.output_func(actions)
+        joint_state = torch.cat([state, mul_weighted_feature], dim=2)
+        actions = self.mlp3(joint_state.view((-1, self.mlp3_input_dim))).view((size[0],-1))
+        # actions = self.output_func(actions)
         return actions

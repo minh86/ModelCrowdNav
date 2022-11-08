@@ -45,7 +45,8 @@ parser.add_argument('--dyna', default=False, action='store_true')
 parser.add_argument('--no_val', default=False, action='store_true')
 parser.add_argument('--use_linear_to_gen', default=False, action='store_true')
 parser.add_argument('--neptune', default=False, action='store_true')
-
+parser.add_argument('--world_model', type=str, default='mlp')
+parser.add_argument('--neptune_name', type=str, default='Untitled')
 args = parser.parse_args()
 
 # In[3]:
@@ -134,12 +135,12 @@ sample_episodes_in_sim = train_config.getint('train_sim', 'sample_episodes_in_si
 init_train_episodes = train_config.getint('train_sim', 'init_train_episodes')
 api_token = train_config.get('neptune', 'api_token')
 
-# ------  neptune params
+# ----------------------------  neptune params --------------------------------
 params ={"output_dir":args.output_dir, "model_sim_lr":model_sim_lr, "train_world_epochs": train_world_epochs,
          "sample_episodes_in_real_before_train": sample_episodes_in_real_before_train,
          "sample_episodes_in_sim": sample_episodes_in_sim, "init_train_episodes":init_train_episodes,
          "train_episodes":train_episodes,"target_update_interval":target_update_interval,
-         "device": args.device}
+         "device": args.device, "world_model": args.world_model}
 
 # configure trainer and explorer
 memory = ReplayMemory(capacity)
@@ -151,8 +152,10 @@ explorer.rawob = ReplayMemory(capacity)
 explorer.raw_memory = ReplayMemory(capacity)
 
 # config sim environment
-model_sim = MlpWorld(env_config.getint('sim', 'human_num'),multihuman=policy.multiagent_training)
-# model_sim = AttentionWorld()
+if args.world_model =="mlp":
+    model_sim = MlpWorld(env_config.getint('sim', 'human_num'),multihuman=policy.multiagent_training)
+if args.world_model =="attention":
+    model_sim = AttentionWorld()
 model_sim.to(device)
 model_sim.device = device
 env_sim = gym.make('ModelCrowdSim-v0')
@@ -189,6 +192,7 @@ if args.neptune:
     run = neptune.init_run(
         project="minh86/CrowdNav",
         api_token=api_token,
+        name=args.neptune_name
     )  # your credentials
     run["parameters"] = params
 
