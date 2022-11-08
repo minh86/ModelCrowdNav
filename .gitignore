@@ -19,3 +19,4 @@ configs_test/
 
 # notebook
 *.ipynb
+.neptune/
