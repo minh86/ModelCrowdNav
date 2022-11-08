@@ -122,6 +122,7 @@ epsilon_start = train_config.getfloat('train', 'epsilon_start')
 epsilon_end = train_config.getfloat('train', 'epsilon_end')
 epsilon_decay = train_config.getfloat('train', 'epsilon_decay')
 checkpoint_interval = train_config.getint('train', 'checkpoint_interval')
+train_render_interval =  train_config.getint('train', 'train_render_interval')
 
 model_sim_lr = train_config.getfloat('train_sim', 'model_sim_lr')
 train_world_epochs = train_config.getint('train_sim', 'train_world_epochs')
@@ -257,21 +258,26 @@ for episode in tqdm(range(train_episodes)):
     run["exp_in_mix/collision_rate"].log(collision_rate)  # log to neptune
     run["exp_in_mix/timeout_rate"].log(timeout_rate)  # log to neptune
 
-    if (episode + 1) % (50) == 0 and episode != 1:
-        video_tag = "train"
+    if (episode + 1) % train_render_interval == 0 and episode != 1:
+        video_tag = "train_vi"
         explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
+        run[video_tag].upload(
+            os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))  # upload to neptune
 
     average_loss = trainer.optimize_batch(train_batches)
     run["train_value_network/loss"].log(average_loss)  # log to neptune
     # logging.info('Policy model env. val_loss: {:.4f}'.format(average_loss))
 
     # evaluate the model
-    if (episode + 1) % (100) == 0 and episode != 1 and not args.no_val:
+    if (episode + 1) % evaluation_interval == 0 and episode != 1 and not args.no_val:
         logging.info("Val in real...")
         policy.set_env(env)
-        video_tag = "exp_val"
+        video_tag = "val_vi"
         cumulative_rewards = explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
         explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
+        run[video_tag].upload(
+            os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif")) # upload to neptune
+
         if cumulative_rewards > best_cumulative_rewards and args.no_val == False:
             best_cumulative_rewards = cumulative_rewards
             torch.save(model.state_dict(), rl_weight_file)
@@ -288,6 +294,8 @@ if not args.no_val: # load model from validation
     logging.info("Load best RL model")
     robot.policy.model.load_state_dict(torch.load(rl_weight_file))  # load best model
 explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode)
-video_tag="test"
+video_tag="test_vi"
 explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
+run[video_tag].upload(
+            os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))  # upload to neptune
 run.stop()
