@@ -137,7 +137,8 @@ api_token = train_config.get('neptune', 'api_token')
 params ={"output_dir":args.output_dir, "model_sim_lr":model_sim_lr, "train_world_epochs": train_world_epochs,
          "sample_episodes_in_real_before_train": sample_episodes_in_real_before_train,
          "sample_episodes_in_sim": sample_episodes_in_sim, "init_train_episodes":init_train_episodes,
-         "train_episodes":train_episodes,"target_update_interval":target_update_interval}
+         "train_episodes":train_episodes,"target_update_interval":target_update_interval,
+         "device": args.device}
 
 # configure trainer and explorer
 memory = ReplayMemory(capacity)
@@ -272,8 +273,11 @@ for episode in tqdm(range(train_episodes)):
     if (episode + 1) % evaluation_interval == 0 and episode != 1 and not args.no_val:
         logging.info("Val in real...")
         policy.set_env(env)
+        cumulative_rewards, success_rate, collision_rate, timeout_rate = explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
+        run["val/success_rate"].log(success_rate)  # log to neptune
+        run["val/collision_rate"].log(collision_rate)  # log to neptune
+        run["val/timeout_rate"].log(timeout_rate)  # log to neptune
         video_tag = "val_vi"
-        cumulative_rewards = explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
         explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
         run[video_tag].upload(
             os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif")) # upload to neptune

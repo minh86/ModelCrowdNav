@@ -100,6 +100,7 @@ class Explorer(object):
 
         success_rate = success / k
         collision_rate = collision / k
+        timeout_rate = (k - success - collision) / k
         assert success + collision + timeout == k
         avg_nav_time = sum(success_times) / len(success_times) if success_times else self.env.time_limit
 
@@ -117,7 +118,7 @@ class Explorer(object):
             logging.info('Collision cases: ' + ' '.join([str(x) for x in collision_cases]))
             logging.info('Timeout cases: ' + ' '.join([str(x) for x in timeout_cases]))
 
-        return average(cumulative_rewards)
+        return average(cumulative_rewards), success_rate, collision_rate, timeout_rate
 
     def update_memory(self, states, actions, rewards, imitation_learning=False):
         if self.memory is None or self.gamma is None:
