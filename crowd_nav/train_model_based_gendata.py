@@ -44,6 +44,7 @@ parser.add_argument('--add_noise', default=False, action='store_true')
 parser.add_argument('--dyna', default=False, action='store_true')
 parser.add_argument('--no_val', default=False, action='store_true')
 parser.add_argument('--use_linear_to_gen', default=False, action='store_true')
+parser.add_argument('--neptune', default=False, action='store_true')
 
 args = parser.parse_args()
 
@@ -150,7 +151,8 @@ explorer.rawob = ReplayMemory(capacity)
 explorer.raw_memory = ReplayMemory(capacity)
 
 # config sim environment
-model_sim = mlp(env_config.getint('sim', 'human_num'),multihuman=policy.multiagent_training);
+# model_sim = MlpWorld(env_config.getint('sim', 'human_num'),multihuman=policy.multiagent_training)
+model_sim = AttentionWorld()
 model_sim.to(device)
 model_sim.device = device
 env_sim = gym.make('ModelCrowdSim-v0')
@@ -182,13 +184,13 @@ data_generator.raw_memory = explorer.raw_memory
 episode = 0
 epsilon = epsilon_end  # fix small epsilon
 robot.policy.set_epsilon(epsilon)
-
 # ============== neptune things  ================
-run = neptune.init_run(
-    project="minh86/CrowdNav",
-    api_token=api_token,
-)  # your credentials
-run["parameters"] = params
+if args.neptune:
+    run = neptune.init_run(
+        project="minh86/CrowdNav",
+        api_token=api_token,
+    )  # your credentials
+    run["parameters"] = params
 
 
 # ============  init and collect data  ===============
@@ -221,7 +223,8 @@ for episode in tqdm(range(init_train_episodes)):
     # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=False, add_sim=True)
 
     average_loss = trainer.optimize_batch(train_batches)
-    run["train_value_network_init/loss"].log(average_loss) # log to neptune
+    if args.neptune:
+        run["train_value_network_init/loss"].log(average_loss) # log to neptune
     # logging.info('Policy model env. val_loss: {:.4f}'.format(average_loss))
 
     # # evaluate the model
@@ -251,22 +254,26 @@ for episode in tqdm(range(train_episodes)):
     # retrain world model before gen data
     # model_sim.apply(init_weight)  # reinit weight before training
     ms_valid_loss = trainer_sim.optimize_epoch(train_world_epochs)
-    run["train_world_model/loss"].log(ms_valid_loss)  # log to neptune
+    if args.neptune:
+        run["train_world_model/loss"].log(ms_valid_loss)  # log to neptune
 
     # let's explore mix reality!
     success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explore_in_mix(sample_episodes_in_sim)
-    run["exp_in_mix/success_rate"].log(success_rate)  # log to neptune
-    run["exp_in_mix/collision_rate"].log(collision_rate)  # log to neptune
-    run["exp_in_mix/timeout_rate"].log(timeout_rate)  # log to neptune
+    if args.neptune:
+        run["exp_in_mix/success_rate"].log(success_rate)  # log to neptune
+        run["exp_in_mix/collision_rate"].log(collision_rate)  # log to neptune
+        run["exp_in_mix/timeout_rate"].log(timeout_rate)  # log to neptune
 
     if (episode + 1) % train_render_interval == 0 and episode != 1:
         video_tag = "train_vi"
         explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
-        run[video_tag+"/"+video_tag + "_ep" + str(episode) + ".gif"].upload(
-            os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))  # upload to neptune
+        if args.neptune:
+            run[video_tag+"/"+video_tag + "_ep" + str(episode) + ".gif"].upload(
+                os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))  # upload to neptune
 
     average_loss = trainer.optimize_batch(train_batches)
-    run["train_value_network/loss"].log(average_loss)  # log to neptune
+    if args.neptune:
+        run["train_value_network/loss"].log(average_loss)  # log to neptune
     # logging.info('Policy model env. val_loss: {:.4f}'.format(average_loss))
 
     # evaluate the model
@@ -274,13 +281,15 @@ for episode in tqdm(range(train_episodes)):
         logging.info("Val in real...")
         policy.set_env(env)
         cumulative_rewards, success_rate, collision_rate, timeout_rate = explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
-        run["val/success_rate"].log(success_rate)  # log to neptune
-        run["val/collision_rate"].log(collision_rate)  # log to neptune
-        run["val/timeout_rate"].log(timeout_rate)  # log to neptune
+        if args.neptune:
+            run["val/success_rate"].log(success_rate)  # log to neptune
+            run["val/collision_rate"].log(collision_rate)  # log to neptune
+            run["val/timeout_rate"].log(timeout_rate)  # log to neptune
         video_tag = "val_vi"
         explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
-        run[video_tag+"/"+video_tag + "_ep" + str(episode) + ".gif"].upload(
-            os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif")) # upload to neptune
+        if args.neptune:
+            run[video_tag+"/"+video_tag + "_ep" + str(episode) + ".gif"].upload(
+                os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif")) # upload to neptune
 
         if cumulative_rewards > best_cumulative_rewards and args.no_val == False:
             best_cumulative_rewards = cumulative_rewards
@@ -300,6 +309,7 @@ if not args.no_val: # load model from validation
 explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode)
 video_tag="test_vi"
 explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
-run[video_tag+"/"+video_tag + "_ep" + str(episode) + ".gif"].upload(
-            os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))  # upload to neptune
-run.stop()
+if args.neptune:
+    run[video_tag+"/"+video_tag + "_ep" + str(episode) + ".gif"].upload(
+                os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))  # upload to neptune
+    run.stop()

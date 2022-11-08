@@ -3,6 +3,7 @@ import random
 
 import torch
 from torch import nn
+from crowd_nav.policy.cadrl import mlp
 
 
 def init_weight(m):
@@ -10,9 +11,9 @@ def init_weight(m):
         nn.init.xavier_uniform_(m.weight)
 
 
-class autoencoder(nn.Module):
+class AutoencoderWorld(nn.Module):
     def __init__(self, num_human, drop_rate=0.00):
-        super(autoencoder, self).__init__()
+        super().__init__()
         self.encoder = nn.Sequential(
             nn.Linear(num_human * 4, 128),
             nn.ReLU(True),
@@ -30,11 +31,11 @@ class autoencoder(nn.Module):
         return x
 
 
-class mlp(nn.Module):
+class MlpWorld(nn.Module):
     def __init__(self, num_human, drop_rate=0.5, multihuman=True):
-        super(mlp, self).__init__()
+        super().__init__()
         if not multihuman:
-            num_human=1
+            num_human = 1
         self.mlp = nn.Sequential(
             nn.Linear(num_human * 4, 128),
             nn.ReLU(True),
@@ -59,3 +60,58 @@ class mlp(nn.Module):
         bias = (torch.randn(x.shape) * mean).to(self.device)
 
         return x + bias
+
+
+class AttentionWorld(nn.Module):
+    def __init__(self, input_dim=4, with_global_state=True):
+        super().__init__()
+        mlp1_dims = [150, 100]
+        mlp2_dims = [100, 50]
+        attention_dims = [100, 100, 1]
+        mlp3_dims = [150, 100, 100, 2]
+        self.input_dim = input_dim
+        self.with_global_state = with_global_state
+        self.global_state_dim = mlp1_dims[-1]
+        self.mlp1 = mlp(input_dim, mlp1_dims, last_relu=True)
+        self.mlp2 = mlp(mlp1_dims[-1], mlp2_dims)
+        if with_global_state:
+            self.attention = mlp(mlp1_dims[-1] * 2, attention_dims)
+        else:
+            self.attention = mlp(mlp1_dims[-1], attention_dims)
+        mlp3_input_dim = mlp2_dims[-1] + input_dim
+        self.mlp3 = mlp(mlp3_input_dim, mlp3_dims)
+        self.attention_weights = None
+        self.output_func = nn.Tanh()
+
+    def forward(self, in_state):
+        state = in_state.view((in_state.shape[0],-1,self.input_dim))
+        size = state.shape
+        mlp1_output = self.mlp1(state.view((-1, size[2])))
+        mlp2_output = self.mlp2(mlp1_output)
+        if self.with_global_state:
+            # compute attention scores
+            global_state = torch.mean(mlp1_output.view(size[0], size[1], -1), 1, keepdim=True)
+            global_state = global_state.expand((size[0], size[1], self.global_state_dim)). \
+                contiguous().view(-1, self.global_state_dim)
+            attention_input = torch.cat([mlp1_output, global_state], dim=1)
+        else:
+            attention_input = mlp1_output
+        scores = self.attention(attention_input).view(size[0], size[1], 1).squeeze(dim=2)
+
+        # masked softmax
+        # weights = softmax(scores, dim=1).unsqueeze(2)
+        scores_exp = torch.exp(scores) * (scores != 0).float()
+        weights = (scores_exp / torch.sum(scores_exp, dim=1, keepdim=True)).unsqueeze(2)
+        self.attention_weights = weights[0, :, 0].data.cpu().numpy()
+
+        # output feature is a linear combination of input features
+        features = mlp2_output.view(size[0], size[1], -1)
+        # for converting to onnx
+        # expanded_weights = torch.cat([torch.zeros(weights.size()).copy_(weights) for _ in range(50)], dim=2)
+        weighted_feature = torch.sum(torch.mul(weights, features), dim=1)
+
+        # concatenate agent's state with global weighted humans' state
+        joint_state = torch.cat([state, weighted_feature], dim=2)
+        actions = self.mlp3(joint_state)
+        actions = self.output_func(actions)
+        return actions

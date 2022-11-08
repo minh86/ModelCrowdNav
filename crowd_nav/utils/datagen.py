@@ -302,7 +302,8 @@ class DataGen(object):
                 rewards.append(reward)
                 joined_state = JointState(self.env.robot.get_full_state(), ob)
                 i+=1
-            self.update_memory(states, rewards)
+            if isinstance(info, ReachGoal) or isinstance(info, Collision):
+                self.update_memory(states, rewards)
             if isinstance(info, ReachGoal):
                 reach_goal+=1
             if isinstance(info, Collision):
