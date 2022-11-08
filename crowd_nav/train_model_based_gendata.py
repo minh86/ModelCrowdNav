@@ -151,8 +151,8 @@ explorer.rawob = ReplayMemory(capacity)
 explorer.raw_memory = ReplayMemory(capacity)
 
 # config sim environment
-# model_sim = MlpWorld(env_config.getint('sim', 'human_num'),multihuman=policy.multiagent_training)
-model_sim = AttentionWorld()
+model_sim = MlpWorld(env_config.getint('sim', 'human_num'),multihuman=policy.multiagent_training)
+# model_sim = AttentionWorld()
 model_sim.to(device)
 model_sim.device = device
 env_sim = gym.make('ModelCrowdSim-v0')
