@@ -250,7 +250,7 @@ for episode in tqdm(range(train_episodes)):
     # retrain world model before gen data
     # model_sim.apply(init_weight)  # reinit weight before training
     ms_valid_loss = trainer_sim.optimize_epoch(train_world_epochs)
-    run["train_world_model_2/loss"].log(ms_valid_loss)  # log to neptune
+    run["train_world_model/loss"].log(ms_valid_loss)  # log to neptune
 
     # let's explore mix reality!
     success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explore_in_mix(sample_episodes_in_sim)
