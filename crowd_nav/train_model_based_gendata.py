@@ -262,7 +262,7 @@ for episode in tqdm(range(train_episodes)):
     if (episode + 1) % train_render_interval == 0 and episode != 1:
         video_tag = "train_vi"
         explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
-        run[video_tag].upload(
+        run[video_tag+"/"+video_tag + "_ep" + str(episode) + ".gif"].upload(
             os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))  # upload to neptune
 
     average_loss = trainer.optimize_batch(train_batches)
@@ -279,7 +279,7 @@ for episode in tqdm(range(train_episodes)):
         run["val/timeout_rate"].log(timeout_rate)  # log to neptune
         video_tag = "val_vi"
         explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
-        run[video_tag].upload(
+        run[video_tag+"/"+video_tag + "_ep" + str(episode) + ".gif"].upload(
             os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif")) # upload to neptune
 
         if cumulative_rewards > best_cumulative_rewards and args.no_val == False:
@@ -300,6 +300,6 @@ if not args.no_val: # load model from validation
 explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode)
 video_tag="test_vi"
 explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
-run[video_tag].upload(
+run[video_tag+"/"+video_tag + "_ep" + str(episode) + ".gif"].upload(
             os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))  # upload to neptune
 run.stop()
