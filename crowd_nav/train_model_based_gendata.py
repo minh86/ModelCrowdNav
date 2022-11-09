@@ -134,6 +134,7 @@ ms_batchsize = train_config.getint('train_sim', 'ms_batchsize')
 sample_episodes_in_sim = train_config.getint('train_sim', 'sample_episodes_in_sim')
 init_train_episodes = train_config.getint('train_sim', 'init_train_episodes')
 api_token = train_config.get('neptune', 'api_token')
+neptune_project = train_config.get('neptune', 'neptune_project')
 
 # ----------------------------  neptune params --------------------------------
 params ={"output_dir":args.output_dir, "model_sim_lr":model_sim_lr, "train_world_epochs": train_world_epochs,
@@ -185,17 +186,15 @@ data_generator = DataGen(memory, robot, env_sim, policy)
 data_generator.update_target_model(model)
 data_generator.raw_memory = explorer.raw_memory
 episode = 0
-epsilon = epsilon_end  # fix small epsilon
-robot.policy.set_epsilon(epsilon)
+
 # ============== neptune things  ================
 if args.neptune:
     run = neptune.init_run(
-        project="minh86/CrowdNav",
+        project=neptune_project,
         api_token=api_token,
         name=args.neptune_name
-    )  # your credentials
+    )
     run["parameters"] = params
-
 
 # ============  init and collect data  ===============
 # explore real to train sim
@@ -250,11 +249,15 @@ for episode in tqdm(range(init_train_episodes)):
 # ==============   gen data by explorer in mix reality  ================
 logging.info("Training phase...")
 best_cumulative_rewards = float('-inf')
-# logging.info("Load best RL model")
+# logging.info("Load the best RL model")
 # robot.policy.model.load_state_dict(torch.load(rl_weight_file))  # load best model
 data_generator.update_target_model(robot.policy.model)
 for episode in tqdm(range(train_episodes)):
-
+    if episode < epsilon_decay:
+        epsilon = epsilon_start + (epsilon_end - epsilon_start) / epsilon_decay * episode
+    else:
+        epsilon = epsilon_end
+    robot.policy.set_epsilon(epsilon)
     # retrain world model before gen data
     # model_sim.apply(init_weight)  # reinit weight before training
     ms_valid_loss = trainer_sim.optimize_epoch(train_world_epochs)
