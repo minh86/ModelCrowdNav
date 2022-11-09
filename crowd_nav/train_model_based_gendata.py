@@ -256,6 +256,8 @@ best_cumulative_rewards = float('-inf')
 # robot.policy.model.load_state_dict(torch.load(rl_weight_file))  # load best model
 data_generator.update_target_model(robot.policy.model)
 for episode in tqdm(range(train_episodes)):
+    run["Current Episode"].log("%d / %d" % (episode, train_episodes))  # log to neptune
+
     if episode < epsilon_decay:
         epsilon = epsilon_start + (epsilon_end - epsilon_start) / epsilon_decay * episode
     else:
