@@ -25,6 +25,7 @@ from crowd_nav.utils.explorer import Explorer
 from crowd_nav.utils.datagen import DataGen
 from crowd_nav.policy.policy_factory import policy_factory
 from crowd_nav.policy.world_model import *
+from crowd_nav.utils.misc import *
 
 # In[2]:
 
@@ -141,7 +142,8 @@ params ={"output_dir":args.output_dir, "model_sim_lr":model_sim_lr, "train_world
          "sample_episodes_in_real_before_train": sample_episodes_in_real_before_train,
          "sample_episodes_in_sim": sample_episodes_in_sim, "init_train_episodes":init_train_episodes,
          "train_episodes":train_episodes,"target_update_interval":target_update_interval,
-         "device": args.device, "world_model": args.world_model}
+         "device": args.device, "world_model": args.world_model, "epsilon_start": epsilon_start,
+         "epsilon_end":epsilon_end, "epsilon_decay":epsilon_decay}
 
 # configure trainer and explorer
 memory = ReplayMemory(capacity)
@@ -275,6 +277,7 @@ for episode in tqdm(range(train_episodes)):
         video_tag = "train_vi"
         explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
         if args.neptune:
+            Resize_GIF(os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
             run[video_tag+"/"+video_tag + "_ep" + str(episode) + ".gif"].upload(
                 os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))  # upload to neptune
 
@@ -295,6 +298,7 @@ for episode in tqdm(range(train_episodes)):
         video_tag = "val_vi"
         explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
         if args.neptune:
+            Resize_GIF(os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
             run[video_tag+"/"+video_tag + "_ep" + str(episode) + ".gif"].upload(
                 os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif")) # upload to neptune
 
@@ -317,6 +321,7 @@ explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode)
 video_tag="test_vi"
 explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
 if args.neptune:
+    Resize_GIF(os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
     run[video_tag+"/"+video_tag + "_ep" + str(episode) + ".gif"].upload(
                 os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))  # upload to neptune
     run.stop()
