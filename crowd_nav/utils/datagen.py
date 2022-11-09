@@ -35,10 +35,12 @@ class DataGen(object):
     def update_target_model(self, target_model):
         self.target_model = copy.deepcopy(target_model)
 
-    def gen_new_episode(self, min_epi_length=30, max_epi_length=60, phase="train"):
+    def gen_new_episode(self, min_epi_length=30, max_epi_length=60, phase="train", max_human=-1):
         raw_states = []
         done = False
         i = 0
+        if max_human>0:
+            self.env.human_num=max_human
         ob = self.env.reset(phase)
         state = JointState(self.full_state, ob)
         raw_states.append(state)
@@ -194,10 +196,10 @@ class DataGen(object):
         self.update_memory(states[:end_epi], rewards[:end_epi], imitation_learning)
 
     # gen data from imagination only
-    def gen_new_data(self, num_sample, imitation_learning=False, reach_goal=True):
+    def gen_new_data(self, num_sample, imitation_learning=False, reach_goal=True, max_human=-1):
         for _ in range(num_sample):
             # Create random episode as robot stay the same position
-            states = self.gen_new_episode()
+            states = self.gen_new_episode(max_human=max_human)
             # start from end episode (goal or human (collision case)), make up random action for each state, collect reward
             states, rewards = self.edit_episode(states, reach_goal)
             # add data to memory

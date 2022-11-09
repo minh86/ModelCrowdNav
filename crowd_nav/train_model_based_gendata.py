@@ -286,7 +286,7 @@ for episode in tqdm(range(train_episodes)):
         if sum(seq_success.memory) == max_success_on_a_level and max_human < env.human_num:
             max_human += 1
             memory.clear()
-            data_generator.gen_data_from_explore_in_mix(sample_episodes_in_sim * init_train_episodes,
+            data_generator.gen_data_from_explore_in_mix(max_success_on_a_level * init_train_episodes,
                                                         max_human=max_human)  # add init memory
             seq_success.clear()
 
