@@ -15,6 +15,7 @@ import gym
 import sys, os, pickle
 from tqdm import tqdm
 import neptune.new as neptune
+import numpy as np
 
 sys.path.append('../')
 from crowd_sim.envs.utils.robot import Robot
@@ -265,6 +266,11 @@ for episode in tqdm(range(train_episodes)):
     ms_valid_loss = trainer_sim.optimize_epoch(train_world_epochs)
     if args.neptune:
         run["train_world_model/loss"].log(ms_valid_loss)  # log to neptune
+
+    # adding positive fake experience to battle timeout
+    probability = np.random.random()
+    if probability < epsilon-epsilon_end:
+        data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=True, add_sim=True, imitation_learning=True)
 
     # let's explore mix reality!
     success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explore_in_mix(sample_episodes_in_sim)
