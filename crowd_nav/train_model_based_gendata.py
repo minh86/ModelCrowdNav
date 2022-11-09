@@ -212,6 +212,11 @@ logging.info('Model-based env.  val_loss: {:.4f}'.format(ms_valid_loss))
 
 best_cumulative_rewards = float('-inf')
 update_real_memory = False
+max_human = -1; max_success_on_a_level = 5
+if args.gradual:
+    seq_success = ReplayMemory(max_success_on_a_level)
+    max_human = 1
+    memory.clear()
 for episode in tqdm(range(init_train_episodes)):
     # # explore in real
     # if args.dyna:
@@ -220,16 +225,16 @@ for episode in tqdm(range(init_train_episodes)):
     # explorer.run_k_episodes(sample_episodes_in_real, 'train', update_memory=update_real_memory, update_raw_ob=True, stay=True)
     # ms_valid_loss = trainer_sim.optimize_epoch(train_world_epochs)
 
-    # gen sim data and train
-    data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=True, imitation_learning=True)
-    data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=False, imitation_learning=True)
+    # # gen sim data and train
+    # data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=True, imitation_learning=True)
+    # data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=False, imitation_learning=True)
 
     # # gen sim trajectories data from real data
     # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=True)
     # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=False)
-    # # gen sim trajectories data from mix sim-real data
-    # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=True, add_sim=True)
-    # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=False, add_sim=True)
+    # gen sim trajectories data from mix sim-real data
+    data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=True, add_sim=True,max_human=max_human)
+    data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=False, add_sim=True, max_human=max_human)
 
     average_loss = trainer.optimize_batch(train_batches)
     if args.neptune:
@@ -255,13 +260,6 @@ for episode in tqdm(range(init_train_episodes)):
 # ==============   gen data by explorer in mix reality  ================
 logging.info("Training phase...")
 best_cumulative_rewards = float('-inf')
-max_human = -1; max_success_on_a_level = 5
-if args.gradual:
-    seq_success = ReplayMemory(max_success_on_a_level)
-    max_human = 1
-    memory.clear()
-    data_generator.gen_data_from_explore_in_mix(sample_episodes_in_sim*init_train_episodes, max_human=max_human) # add init memory
-
 # logging.info("Load the best RL model")
 # robot.policy.model.load_state_dict(torch.load(rl_weight_file))  # load best model
 data_generator.update_target_model(robot.policy.model)
