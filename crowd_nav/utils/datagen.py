@@ -219,7 +219,7 @@ class DataGen(object):
         return indexes
 
     # get last real episode
-    def pick_last_real_episode(self, random_epi=False):
+    def pick_last_real_episode(self, random_epi=False, max_human=-1):
         obs = []
         if random_epi:
             indexes = self.get_episode_end_index()
@@ -229,14 +229,16 @@ class DataGen(object):
             mem_states = self.raw_memory
         for i, (ob, reward, done, info) in enumerate(mem_states[::-1]):
             if self.someone_is_moving(ob):
+                if 0 < max_human < len(ob):
+                    ob=ob[:max_human]
                 obs.append(ob)
             if done and i != 0:
                 break
         return obs[::-1]
 
     # create JointState from last real episode
-    def get_real_state(self, random_epi=False):
-        obs = self.pick_last_real_episode(random_epi=random_epi)
+    def get_real_state(self, random_epi=False, max_human=-1):
+        obs = self.pick_last_real_episode(random_epi=random_epi, max_human=max_human)
         raw_states = []
         for ob in obs:
             state = JointState(self.full_state, ob)
@@ -260,10 +262,10 @@ class DataGen(object):
         return raw_states
 
     # gen data from real observation
-    def gen_new_data_from_real(self, num_sample, imitation_learning=False, reach_goal=True, add_sim=False):
+    def gen_new_data_from_real(self, num_sample, imitation_learning=False, reach_goal=True, add_sim=False, max_human=-1):
         for _ in range(num_sample):
             # Get random real state from raw observation
-            states = self.get_real_state()
+            states = self.get_real_state(max_human=max_human)
             # Create few imagine state, branching from random real state
             if add_sim:
                 states = self.create_imagine_on_real(states)
@@ -273,12 +275,12 @@ class DataGen(object):
             self.correct_and_update(states, rewards, imitation_learning)
 
     # gen data by explore in mix reality
-    def gen_data_from_explore_in_mix(self, num_sample, phase="train", min_end=1):
+    def gen_data_from_explore_in_mix(self, num_sample, phase="train", min_end=1, max_human=-1):
         reach_goal = 0
         collision = 0
         for _ in range(num_sample):
             # get real experience
-            raw_states = self.get_real_state(random_epi=True)
+            raw_states = self.get_real_state(random_epi=True, max_human=max_human)
             length = random.randrange(min_end, len(raw_states))
             raw_states = raw_states[:length]
             # set env to replay mode

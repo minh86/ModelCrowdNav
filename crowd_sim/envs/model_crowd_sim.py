@@ -334,6 +334,7 @@ class ModelCrowdSim(gym.Env):
         return self.step(action, update=False)
 
     def set_current_state(self, obs, phase="train"):
+        self.human_num = len(obs)
         self.reset(phase)
         for i, ob in enumerate(obs):
             self.humans[i].set(ob.px, ob.py, 0, 0, ob.vx, ob.vy, 0)

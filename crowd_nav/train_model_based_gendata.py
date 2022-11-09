@@ -49,6 +49,8 @@ parser.add_argument('--use_linear_to_gen', default=False, action='store_true')
 parser.add_argument('--neptune', default=False, action='store_true')
 parser.add_argument('--world_model', type=str, default='mlp')
 parser.add_argument('--neptune_name', type=str, default='Untitled')
+parser.add_argument('--add_positive', default=False, action='store_true') # adding fake positive experience to combat timeout
+parser.add_argument('--gradual', default=False, action='store_true') # gradually changing human num
 args = parser.parse_args()
 
 # In[3]:
@@ -73,6 +75,7 @@ if make_new_dir:
 log_file = os.path.join(args.output_dir, 'output.log')
 il_weight_file = os.path.join(args.output_dir, 'il_model.pth')
 rl_weight_file = os.path.join(args.output_dir, 'rl_model.pth')
+last_rl_weight_file = os.path.join(args.output_dir, 'last_rl_model.pth')
 
 # configure logging
 mode = 'a' if args.resume else 'w'
@@ -252,36 +255,56 @@ for episode in tqdm(range(init_train_episodes)):
 # ==============   gen data by explorer in mix reality  ================
 logging.info("Training phase...")
 best_cumulative_rewards = float('-inf')
+max_human = -1; max_success_on_a_level = 5
+if args.gradual:
+    seq_success = ReplayMemory(max_success_on_a_level)
+    max_human = 1
+    memory.clear()
 # logging.info("Load the best RL model")
 # robot.policy.model.load_state_dict(torch.load(rl_weight_file))  # load best model
 data_generator.update_target_model(robot.policy.model)
 for episode in tqdm(range(train_episodes)):
-    run["Current Episode"].log("%d / %d" % (episode, train_episodes))  # log to neptune
+    if args.neptune:
+        run["Current Episode"].log("%d / %d" % (episode, train_episodes))  # log to neptune
 
     if episode < epsilon_decay:
         epsilon = epsilon_start + (epsilon_end - epsilon_start) / epsilon_decay * episode
     else:
         epsilon = epsilon_end
     robot.policy.set_epsilon(epsilon)
-    # retrain world model before gen data
+
+    # train world model
     # model_sim.apply(init_weight)  # reinit weight before training
     ms_valid_loss = trainer_sim.optimize_epoch(train_world_epochs)
     if args.neptune:
         run["train_world_model/loss"].log(ms_valid_loss)  # log to neptune
+        if args.gradual:
+            run["Current human num"].log(max_human)  # log to neptune
+
+    # gradually changing difficult env level
+    if args.gradual:
+        if sum(seq_success.memory) == max_success_on_a_level and max_human < env.human_num:
+            max_human += 1
+            memory.clear()
+            seq_success.clear()
 
     # adding positive fake experience to battle timeout
-    probability = np.random.random()
-    if probability < epsilon-epsilon_end:
-        data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=True, add_sim=True, imitation_learning=True)
+    if args.add_positive:
+        probability = np.random.random()
+        if probability < 1 + (0 - 1) / epsilon_decay * episode:
+            data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=True, add_sim=True, imitation_learning=True, max_human=max_human)
 
     # let's explore mix reality!
-    success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explore_in_mix(sample_episodes_in_sim)
+    success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explore_in_mix(sample_episodes_in_sim, max_human=max_human)
     if args.neptune:
         run["exp_in_mix/success_rate"].log(success_rate)  # log to neptune
         run["exp_in_mix/collision_rate"].log(collision_rate)  # log to neptune
         run["exp_in_mix/timeout_rate"].log(timeout_rate)  # log to neptune
 
-    if (episode + 1) % train_render_interval == 0 and episode != 1:
+    if args.gradual:
+        seq_success.push(success_rate)
+
+    if (episode + 1) % train_render_interval == 0 or episode==0:
         video_tag = "train_vi"
         explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
         if args.neptune:
@@ -295,7 +318,7 @@ for episode in tqdm(range(train_episodes)):
     # logging.info('Policy model env. val_loss: {:.4f}'.format(average_loss))
 
     # evaluate the model
-    if (episode + 1) % evaluation_interval == 0 and episode != 1 and not args.no_val:
+    if (episode + 1) % evaluation_interval == 0 and not args.no_val:
         logging.info("Val in real...")
         policy.set_env(env)
         cumulative_rewards, success_rate, collision_rate, timeout_rate = explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
@@ -314,6 +337,8 @@ for episode in tqdm(range(train_episodes)):
             best_cumulative_rewards = cumulative_rewards
             torch.save(model.state_dict(), rl_weight_file)
             logging.info("Best RL model saved!")
+            if args.neptune:
+                run["model/best_val"].upload(rl_weight_file)
 
     # update target model
     if (episode+1) % target_update_interval == 0:
@@ -322,6 +347,9 @@ for episode in tqdm(range(train_episodes)):
 # final test
 logging.info("Testing by %d episodes...", env.case_size['test'])
 policy.set_env(env)
+torch.save(model.state_dict(), last_rl_weight_file)
+if args.neptune:
+    run["model/best_val"].upload(last_rl_weight_file)
 if not args.no_val: # load model from validation
     logging.info("Load best RL model")
     robot.policy.model.load_state_dict(torch.load(rl_weight_file))  # load best model
