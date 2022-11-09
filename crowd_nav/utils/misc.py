@@ -3,7 +3,7 @@ from PIL import Image, ImageSequence
 
 def Resize_GIF(src_path):
     # Output (max) size
-    size = 1000, 800
+    size = 800, 600
     # Open source
     im = Image.open(src_path)
     # Get sequence iterator
