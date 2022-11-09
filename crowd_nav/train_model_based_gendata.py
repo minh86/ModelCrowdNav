@@ -260,6 +260,8 @@ if args.gradual:
     seq_success = ReplayMemory(max_success_on_a_level)
     max_human = 1
     memory.clear()
+    data_generator.gen_data_from_explore_in_mix(sample_episodes_in_sim*init_train_episodes, max_human=max_human) # add init memory
+
 # logging.info("Load the best RL model")
 # robot.policy.model.load_state_dict(torch.load(rl_weight_file))  # load best model
 data_generator.update_target_model(robot.policy.model)
@@ -286,6 +288,8 @@ for episode in tqdm(range(train_episodes)):
         if sum(seq_success.memory) == max_success_on_a_level and max_human < env.human_num:
             max_human += 1
             memory.clear()
+            data_generator.gen_data_from_explore_in_mix(sample_episodes_in_sim * init_train_episodes,
+                                                        max_human=max_human)  # add init memory
             seq_success.clear()
 
     # adding positive fake experience to battle timeout
