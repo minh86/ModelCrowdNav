@@ -3,7 +3,18 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
+import torch
 
+
+def collate_fn(batch):
+    states = []; values = []
+    size = batch[0][0].shape
+    device = batch[0][0].device
+    for item in batch:
+        if item[0].shape == size:
+            states.append(item[0])
+            values.append(item[1])
+    return [torch.stack(states), torch.stack(values)]
 
 class Trainer(object):
     def __init__(self, model, memory, device, batch_size):
@@ -26,7 +37,7 @@ class Trainer(object):
         if self.optimizer is None:
             raise ValueError('Learning rate is not set!')
         if self.data_loader is None:
-            self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True)
+            self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True, collate_fn=collate_fn)
         average_epoch_loss = 0
         for epoch in range(num_epochs):
             epoch_loss = 0
@@ -51,7 +62,7 @@ class Trainer(object):
         if self.optimizer is None:
             raise ValueError('Learning rate is not set!')
         if self.data_loader is None:
-            self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True)
+            self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True, collate_fn=collate_fn)
         losses = 0
         for _ in range(num_batches):
             inputs, values = next(iter(self.data_loader))

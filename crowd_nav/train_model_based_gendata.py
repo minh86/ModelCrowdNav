@@ -212,19 +212,13 @@ logging.info('Model-based env.  val_loss: {:.4f}'.format(ms_valid_loss))
 
 best_cumulative_rewards = float('-inf')
 update_real_memory = False
-max_human = -1; max_success_on_a_level = 5
+max_human = -1
 if args.gradual:
+    max_success_on_a_level = 10
+    target_average_success = 0.90
     seq_success = ReplayMemory(max_success_on_a_level)
     max_human = 1
-    memory.clear()
 for episode in tqdm(range(init_train_episodes)):
-    # # explore in real
-    # if args.dyna:
-    #     update_real_memory = True
-    # policy.set_env(env)
-    # explorer.run_k_episodes(sample_episodes_in_real, 'train', update_memory=update_real_memory, update_raw_ob=True, stay=True)
-    # ms_valid_loss = trainer_sim.optimize_epoch(train_world_epochs)
-
     # # gen sim data and train
     # data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=True, imitation_learning=True)
     # data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=False, imitation_learning=True)
@@ -232,26 +226,14 @@ for episode in tqdm(range(init_train_episodes)):
     # # gen sim trajectories data from real data
     # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=True)
     # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=False)
+
     # gen sim trajectories data from mix sim-real data
     data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=True, add_sim=True,max_human=max_human, imitation_learning=True)
-    # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=False, add_sim=True, max_human=max_human, imitation_learning=True)
+    data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=False, add_sim=True, max_human=max_human, imitation_learning=True)
 
     average_loss = trainer.optimize_batch(train_batches)
     if args.neptune:
         run["train_value_network_init/loss"].log(average_loss) # log to neptune
-    # logging.info('Policy model env. val_loss: {:.4f}'.format(average_loss))
-
-    # # evaluate the model
-    # if (episode+1) % evaluation_interval == 0 and episode != 0 :
-    #     logging.info("Val in real...")
-    #     policy.set_env(env)
-    #     video_tag = "im_val"
-    #     cumulative_rewards = explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
-    #     explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
-    #     if cumulative_rewards > best_cumulative_rewards and args.no_val == False:
-    #         best_cumulative_rewards = cumulative_rewards
-    #         torch.save(model.state_dict(), rl_weight_file)
-    #         logging.info("Best RL model saved!")
 
     # update target model
     if (episode+1) % target_update_interval == 0:
@@ -283,18 +265,9 @@ for episode in tqdm(range(train_episodes)):
 
     # gradually changing difficult env level
     if args.gradual:
-        if sum(seq_success.memory) == max_success_on_a_level and max_human < env.human_num:
+        if sum(seq_success.memory) >= target_average_success * max_success_on_a_level and max_human < env.human_num:
             max_human += 1
-            memory.clear()
-            data_generator.gen_data_from_explore_in_mix(max_success_on_a_level * init_train_episodes,
-                                                        max_human=max_human)  # add init memory
             seq_success.clear()
-
-    # adding positive fake experience to battle timeout
-    if args.add_positive:
-        probability = np.random.random()
-        if probability < 1 + (0 - 1) / epsilon_decay * episode:
-            data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=True, add_sim=True, imitation_learning=True, max_human=max_human)
 
     # let's explore mix reality!
     success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explore_in_mix(sample_episodes_in_sim, max_human=max_human)
