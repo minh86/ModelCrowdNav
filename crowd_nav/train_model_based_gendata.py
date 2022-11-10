@@ -233,9 +233,9 @@ il_policy = policy_factory[il_policy]()
 il_policy.multiagent_training = policy.multiagent_training
 il_policy.safety_space = safety_space
 il_policy.time_step = policy.time_step
+il_policy.device = policy.device
 data_generator.policy = il_policy
 robot.set_policy(il_policy)
-# explorer.run_k_episodes(il_episodes, 'train', update_memory=True, imitation_learning=True)
 success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explore_in_mix(il_episodes,
                                                                                          max_human=max_human,
                                                                                          imitation_learning=True)
