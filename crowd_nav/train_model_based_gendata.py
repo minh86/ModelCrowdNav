@@ -241,6 +241,11 @@ success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explor
                                                                                          imitation_learning=True)
 video_tag = "il_vi"
 explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + ".gif"))
+if args.neptune:
+    Resize_GIF(os.path.join(args.output_dir, video_tag + "_ep" + ".gif"))
+    run[video_tag + "/" + video_tag + "_ep" + ".gif"].upload(
+        os.path.join(args.output_dir, video_tag + "_ep" + ".gif"))  # upload to neptune
+
 trainer.optimize_epoch(il_epochs)
 data_generator.policy = policy
 robot.set_policy(policy)
