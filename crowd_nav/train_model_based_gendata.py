@@ -233,8 +233,8 @@ for episode in tqdm(range(init_train_episodes)):
     # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=True)
     # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=False)
     # gen sim trajectories data from mix sim-real data
-    data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=True, add_sim=True,max_human=max_human)
-    data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=False, add_sim=True, max_human=max_human)
+    data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=True, add_sim=True,max_human=max_human, imitation_learning=True)
+    # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=False, add_sim=True, max_human=max_human, imitation_learning=True)
 
     average_loss = trainer.optimize_batch(train_batches)
     if args.neptune:
@@ -314,9 +314,11 @@ for episode in tqdm(range(train_episodes)):
             run[video_tag+"/"+video_tag + "_ep" + str(episode) + ".gif"].upload(
                 os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))  # upload to neptune
 
+    # train value network
     average_loss = trainer.optimize_batch(train_batches)
     if args.neptune:
         run["train_value_network/loss"].log(average_loss)  # log to neptune
+        run["train_value_network/PositiveRate"].log(PositiveRate(memory))  # log to neptune
     # logging.info('Policy model env. val_loss: {:.4f}'.format(average_loss))
 
     # evaluate the model

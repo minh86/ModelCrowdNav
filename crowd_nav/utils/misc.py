@@ -21,3 +21,10 @@ def Resize_GIF(src_path):
     om = next(frames)  # Handle first frame separately
     om.info = im.info  # Copy sequence info
     om.save(src_path, save_all=True, append_images=list(frames))
+
+def PositiveRate(memory):
+    pos = 0
+    for _, value in memory.memory:
+        if value.item() >0:
+            pos+=1
+    return  pos/len(memory.memory)
