@@ -1,5 +1,5 @@
 from torch.utils.data import Dataset
-
+import random
 
 class ReplayMemory(Dataset):
     def __init__(self, capacity):
@@ -26,3 +26,6 @@ class ReplayMemory(Dataset):
 
     def clear(self):
         self.memory = list()
+
+    def shuffle(self):
+        random.shuffle(self.memory)

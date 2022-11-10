@@ -231,7 +231,7 @@ for episode in tqdm(range(init_train_episodes)):
     # gen sim trajectories data from mix sim-real data
     data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=True, add_sim=True,max_human=max_human, imitation_learning=True)
     data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=False, add_sim=True, max_human=max_human, imitation_learning=True)
-
+    memory.shuffle()
     average_loss = trainer.optimize_batch(train_batches)
     if args.neptune:
         run["train_value_network_init/loss"].log(average_loss) # log to neptune
