@@ -140,14 +140,21 @@ sample_episodes_in_sim = train_config.getint('train_sim', 'sample_episodes_in_si
 init_train_episodes = train_config.getint('train_sim', 'init_train_episodes')
 api_token = train_config.get('neptune', 'api_token')
 neptune_project = train_config.get('neptune', 'neptune_project')
+num_epi_in_count = train_config.getint('train_sim', 'num_epi_in_count')
+target_average_success = train_config.getfloat('train_sim', 'target_average_success')
 
+max_human = -1
+if args.gradual:
+    seq_success = ReplayMemory(num_epi_in_count)
+    max_human = 1
 # ----------------------------  neptune params --------------------------------
 params ={"output_dir":args.output_dir, "model_sim_lr":model_sim_lr, "train_world_epochs": train_world_epochs,
          "sample_episodes_in_real_before_train": sample_episodes_in_real_before_train,
          "sample_episodes_in_sim": sample_episodes_in_sim, "init_train_episodes":init_train_episodes,
          "train_episodes":train_episodes,"target_update_interval":target_update_interval,
          "device": args.device, "world_model": args.world_model, "epsilon_start": epsilon_start,
-         "epsilon_end":epsilon_end, "epsilon_decay":epsilon_decay}
+         "epsilon_end":epsilon_end, "epsilon_decay":epsilon_decay, "num_epi_in_count":num_epi_in_count,
+         "target_average_success": target_average_success}
 
 # configure trainer and explorer
 memory = ReplayMemory(capacity)
@@ -212,12 +219,6 @@ logging.info('Model-based env.  val_loss: {:.4f}'.format(ms_valid_loss))
 
 best_cumulative_rewards = float('-inf')
 update_real_memory = False
-max_human = -1
-if args.gradual:
-    max_success_on_a_level = 10
-    target_average_success = 0.90
-    seq_success = ReplayMemory(max_success_on_a_level)
-    max_human = 1
 for episode in tqdm(range(init_train_episodes)):
     # # gen sim data and train
     # data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=True, imitation_learning=True)
@@ -265,7 +266,7 @@ for episode in tqdm(range(train_episodes)):
 
     # gradually changing difficult env level
     if args.gradual:
-        if sum(seq_success.memory) >= target_average_success * max_success_on_a_level and max_human < env.human_num:
+        if sum(seq_success.memory) >= target_average_success * num_epi_in_count and max_human < env.human_num:
             max_human += 1
             seq_success.clear()
 
