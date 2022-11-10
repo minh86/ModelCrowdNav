@@ -321,6 +321,8 @@ class ModelCrowdSim(gym.Env):
             self.action_values = list()
         if hasattr(self.robot.policy, 'get_attention_weights'):
             self.attention_weights = list()
+        else:
+            self.attention_weights = None
 
         # get current observation
         if self.robot.sensor == 'coordinates':

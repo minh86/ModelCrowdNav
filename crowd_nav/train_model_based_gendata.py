@@ -187,7 +187,6 @@ env_sim.use_linear_to_gen = args.use_linear_to_gen
 # model based things
 trainer_sim = Trainer_Sim(model_sim, explorer.rawob, device, ms_batchsize, model_sim_checkpoint)
 explorer_sim = Explorer(env_sim, robot, device, memory, policy.gamma, target_policy=policy)
-# datagen things
 robot.set_policy(policy)
 
 # reinforcement learning
@@ -212,7 +211,7 @@ if args.neptune:
     run["config/policy"].upload(args.policy_config)
     run["config/train"].upload(args.train_config)
 
-# ============  init and collect data  ===============
+# ============  training world model  ===============
 # explore real to train sim
 logging.info("Collect data and init phase...")
 explorer.run_k_episodes(sample_episodes_in_real_before_train, 'train', update_memory=False, update_raw_ob=True, stay=True)
@@ -220,32 +219,60 @@ logging.info("Training world model...")
 ms_valid_loss = trainer_sim.optimize_epoch(train_world_epochs)
 logging.info('Model-based env.  val_loss: {:.4f}'.format(ms_valid_loss))
 
-best_cumulative_rewards = float('-inf')
-update_real_memory = False
-for episode in tqdm(range(init_train_episodes)):
-    # # gen sim data and train
-    data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=True, imitation_learning=True)
-    data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=False, imitation_learning=True)
+# ============ imitation learning  ====================
+il_episodes = train_config.getint('imitation_learning', 'il_episodes')
+il_policy = train_config.get('imitation_learning', 'il_policy')
+il_epochs = train_config.getint('imitation_learning', 'il_epochs')
+il_learning_rate = train_config.getfloat('imitation_learning', 'il_learning_rate')
+trainer.set_learning_rate(il_learning_rate)
+if robot.visible:
+    safety_space = 0
+else:
+    safety_space = train_config.getfloat('imitation_learning', 'safety_space')
+il_policy = policy_factory[il_policy]()
+il_policy.multiagent_training = policy.multiagent_training
+il_policy.safety_space = safety_space
+il_policy.time_step = policy.time_step
+data_generator.policy = il_policy
+robot.set_policy(il_policy)
+# explorer.run_k_episodes(il_episodes, 'train', update_memory=True, imitation_learning=True)
+success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explore_in_mix(il_episodes,
+                                                                                         max_human=max_human,
+                                                                                         imitation_learning=True)
+video_tag = "il_vi"
+explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + ".gif"))
+trainer.optimize_epoch(il_epochs)
+data_generator.policy = policy
+robot.set_policy(policy)
 
-    # # gen sim trajectories data from real data
-    # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=True)
-    # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=False)
-
-    # gen sim trajectories data from mix sim-real data
-    # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=True, add_sim=True,max_human=max_human, imitation_learning=True)
-    # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=False, add_sim=True, max_human=max_human, imitation_learning=True)
-    memory.shuffle()
-    average_loss = trainer.optimize_batch(train_batches)
-    if args.neptune:
-        run["train_value_network_init/loss"].log(average_loss) # log to neptune
-
-    # update target model
-    if (episode+1) % target_update_interval == 0:
-        data_generator.update_target_model(model)
+# # =======================  init by imagination  ==================
+# for episode in tqdm(range(init_train_episodes)):
+#     # # gen sim data and train
+#     data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=True, imitation_learning=True)
+#     data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=False, imitation_learning=True)
+#
+#     # # gen sim trajectories data from real data
+#     # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=True)
+#     # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=False)
+#
+#     # gen sim trajectories data from mix sim-real data
+#     # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=True, add_sim=True,max_human=max_human, imitation_learning=True)
+#     # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=False, add_sim=True, max_human=max_human, imitation_learning=True)
+#     memory.shuffle()
+#     average_loss = trainer.optimize_batch(train_batches)
+#     if args.neptune:
+#         run["train_value_network_init/loss"].log(average_loss) # log to neptune
+#
+#     # update target model
+#     if (episode+1) % target_update_interval == 0:
+#         data_generator.update_target_model(model)
 
 # ==============   gen data by explorer in mix reality  ================
 logging.info("Training phase...")
 best_cumulative_rewards = float('-inf')
+mem_success = ReplayMemory(num_epi_in_count)
+mem_collision = ReplayMemory(num_epi_in_count)
+mem_timeout = ReplayMemory(num_epi_in_count)
 # logging.info("Load the best RL model")
 # robot.policy.model.load_state_dict(torch.load(rl_weight_file))  # load best model
 data_generator.update_target_model(robot.policy.model)
@@ -274,11 +301,13 @@ for episode in tqdm(range(train_episodes)):
             seq_success.clear()
 
     # let's explore mix reality!
-    success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explore_in_mix(sample_episodes_in_sim, max_human=max_human)
+    success, collision, timeout = data_generator.gen_data_from_explore_in_mix(sample_episodes_in_sim, max_human=max_human)
+    mem_success.push(success); mem_collision.push(collision); mem_timeout.push(timeout)
+    total_epi = sum(mem_success.memory) + sum(mem_timeout.memory) + sum(mem_collision.memory)
     if args.neptune:
-        run["exp_in_mix/success_rate"].log(success_rate)  # log to neptune
-        run["exp_in_mix/collision_rate"].log(collision_rate)  # log to neptune
-        run["exp_in_mix/timeout_rate"].log(timeout_rate)  # log to neptune
+        run["exp_in_mix/success_rate"].log(sum(mem_success.memory)/total_epi)  # log to neptune
+        run["exp_in_mix/collision_rate"].log(sum(mem_collision.memory)/total_epi)  # log to neptune
+        run["exp_in_mix/timeout_rate"].log(sum(mem_timeout.memory)/total_epi)  # log to neptune
 
     if args.gradual:
         seq_success.push(success_rate)

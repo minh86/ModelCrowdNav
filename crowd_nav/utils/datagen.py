@@ -31,6 +31,7 @@ class DataGen(object):
         self.full_state = FullState(px, py, vx, vy, radius, gx, gy, v_pref, theta)
         self.build_action_space()
         self.policy = policy
+        self.gamma = policy.gamma
 
     def update_target_model(self, target_model):
         self.target_model = copy.deepcopy(target_model)
@@ -277,7 +278,7 @@ class DataGen(object):
             self.correct_and_update(states, rewards, imitation_learning)
 
     # gen data by explore in mix reality
-    def gen_data_from_explore_in_mix(self, num_sample, phase="train", min_end=1, max_human=-1):
+    def gen_data_from_explore_in_mix(self, num_sample, phase="train", min_end=1, max_human=-1, imitation_learning=False):
         reach_goal = 0
         collision = 0
         for _ in range(num_sample):
@@ -307,20 +308,19 @@ class DataGen(object):
                 joined_state = JointState(self.env.robot.get_full_state(), ob)
                 i+=1
             if isinstance(info, ReachGoal) or isinstance(info, Collision):
-                self.update_memory(states, rewards)
+                self.update_memory(states, rewards,imitation_learning=imitation_learning)
             if isinstance(info, ReachGoal):
                 reach_goal+=1
             if isinstance(info, Collision):
                 collision+=1
         success_rate = reach_goal / num_sample
         collision_rate = collision / num_sample
-        timeout_rate = (num_sample - reach_goal - collision) / num_sample
         logging.info('Exp in mix has success rate: {:.2f}, collision rate: {:.2f}'
                      .format(success_rate, collision_rate))
-        return success_rate, collision_rate, timeout_rate
+        return reach_goal, collision, (num_sample - reach_goal - collision)
 
     def update_memory(self, states, rewards, imitation_learning=False):
-        if self.memory is None or self.policy.gamma is None:
+        if self.memory is None or self.gamma is None:
             raise ValueError('Memory or gamma value is not set!')
 
         for i, state in enumerate(states):
@@ -331,7 +331,7 @@ class DataGen(object):
                 # define the value of states in IL as cumulative discounted rewards, which is the same in RL
                 # state = self.transform(state)
                 # value = pow(self.gamma, (len(states) - 1 - i) * self.robot.time_step * self.robot.v_pref)
-                value = sum([pow(self.policy.gamma, max(t - i, 0) * self.robot.time_step * self.robot.v_pref) * reward
+                value = sum([pow(self.gamma, max(t - i, 0) * self.robot.time_step * self.robot.v_pref) * reward
                              * (1 if t >= i else 0) for t, reward in enumerate(rewards)])
             else:
                 if i == len(states) - 1:
@@ -339,7 +339,7 @@ class DataGen(object):
                     value = reward
                 else:
                     next_state = states[i + 1]
-                    gamma_bar = pow(self.policy.gamma, self.robot.time_step * self.robot.v_pref)
+                    gamma_bar = pow(self.gamma, self.robot.time_step * self.robot.v_pref)
                     value = reward + gamma_bar * self.target_model(next_state.unsqueeze(0)).data.item()
             value = torch.Tensor([value]).to(self.policy.device)
             self.memory.push((state, value))
@@ -359,7 +359,7 @@ class DataGen(object):
         """
         state_tensor = torch.cat([torch.Tensor([state.self_state + human_state]).to(self.policy.device)
                                   for human_state in state.human_states], dim=0)
-        if self.policy.with_om:
+        if hasattr(self.policy, 'with_om') and self.policy.with_om:
             occupancy_maps = self.policy.build_occupancy_maps(state.human_states)
             state_tensor = torch.cat([self.rotate(state_tensor), occupancy_maps.to(self.policy.device)], dim=1)
         else:
