@@ -224,16 +224,16 @@ best_cumulative_rewards = float('-inf')
 update_real_memory = False
 for episode in tqdm(range(init_train_episodes)):
     # # gen sim data and train
-    # data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=True, imitation_learning=True)
-    # data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=False, imitation_learning=True)
+    data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=True, imitation_learning=True)
+    data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=False, imitation_learning=True)
 
     # # gen sim trajectories data from real data
     # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=True)
     # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=False)
 
     # gen sim trajectories data from mix sim-real data
-    data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=True, add_sim=True,max_human=max_human, imitation_learning=True)
-    data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=False, add_sim=True, max_human=max_human, imitation_learning=True)
+    # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=True, add_sim=True,max_human=max_human, imitation_learning=True)
+    # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=False, add_sim=True, max_human=max_human, imitation_learning=True)
     memory.shuffle()
     average_loss = trainer.optimize_batch(train_batches)
     if args.neptune:
