@@ -208,6 +208,9 @@ if args.neptune:
         name=args.neptune_name
     )
     run["parameters"] = params
+    run["config/env"].upload(args.env_config)
+    run["config/policy"].upload(args.policy_config)
+    run["config/train"].upload(args.train_config)
 
 # ============  init and collect data  ===============
 # explore real to train sim
