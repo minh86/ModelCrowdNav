@@ -65,7 +65,9 @@ class CrowdSim(gym.Env):
         self.discomfort_penalty_factor = config.getfloat('reward', 'discomfort_penalty_factor')
         if self.config.get('humans', 'policy') == 'orca':
             self.case_capacity = {'train': np.iinfo(np.uint32).max - 2000, 'val': 1000, 'test': 1000}
-            self.case_size = {'train': np.iinfo(np.uint32).max - 2000, 'val': config.getint('env', 'val_size'),
+            # self.case_size = {'train': np.iinfo(np.uint32).max - 2000, 'val': config.getint('env', 'val_size'),
+            #                   'test': config.getint('env', 'test_size')}
+            self.case_size = {'train': 150, 'val': config.getint('env', 'val_size'),
                               'test': config.getint('env', 'test_size')}
             self.train_val_sim = config.get('sim', 'train_val_sim')
             self.test_sim = config.get('sim', 'test_sim')
