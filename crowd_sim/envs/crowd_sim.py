@@ -540,7 +540,7 @@ class CrowdSim(gym.Env):
                 orientations = [orientation]
             else:
                 orientations = []
-                for i in range(self.human_num + 1):
+                for i in range((self.human_num if self.robot.policy.multiagent_training else 1) + 1):
                     orientation = []
                     for state in self.states:
                         if i == 0:

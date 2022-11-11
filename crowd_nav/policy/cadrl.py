@@ -155,7 +155,12 @@ class CADRL(Policy):
             max_action = None
             for action in self.action_space:
                 next_self_state = self.propagate(state.self_state, action)
-                ob, reward, done, info = self.env.onestep_lookahead(action)
+                if self.query_env:
+                    ob, reward, done, info = self.env.onestep_lookahead(action)
+                else:
+                    ob = [self.propagate(human_state, ActionXY(human_state.vx, human_state.vy))
+                                         for human_state in state.human_states]
+                    reward = self.compute_reward(next_self_state, ob)
                 batch_next_states = torch.cat([torch.Tensor([next_self_state + next_human_state]).to(self.device)
                                               for next_human_state in ob], dim=0)
                 # VALUE UPDATE
@@ -171,6 +176,31 @@ class CADRL(Policy):
             self.last_state = self.transform(state)
 
         return max_action
+
+    def compute_reward(self, nav, humans):
+        # collision detection
+        dmin = float('inf')
+        collision = False
+        for i, human in enumerate(humans):
+            dist = np.linalg.norm((nav.px - human.px, nav.py - human.py)) - nav.radius - human.radius
+            if dist < 0:
+                collision = True
+                break
+            if dist < dmin:
+                dmin = dist
+
+        # check if reaching the goal
+        reaching_goal = np.linalg.norm((nav.px - nav.gx, nav.py - nav.gy)) < nav.radius
+        if collision:
+            reward = -0.25
+        elif reaching_goal:
+            reward = 1
+        elif dmin < 0.2:
+            reward = (dmin - 0.2) * 0.5 * self.time_step
+        else:
+            reward = 0
+
+        return reward
 
     def transform(self, state):
         """
