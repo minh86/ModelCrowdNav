@@ -4,9 +4,14 @@ import argparse
 import configparser
 import os
 import shutil
+
+import neptune.new as neptune
 import torch
 import gym
 import sys
+
+from crowd_nav.utils.misc import *
+
 sys.path.append('../')
 from crowd_sim.envs.utils.robot import Robot
 from crowd_nav.utils.trainer import Trainer
@@ -27,7 +32,10 @@ def main():
     parser.add_argument('--gpu', default=False, action='store_true')
     parser.add_argument('--debug', default=False, action='store_true')
     parser.add_argument('--device', type=str, default='cpu')
-    args = parser.parse_args([])
+    parser.add_argument('--neptune', default=False, action='store_true')
+    parser.add_argument('--neptune_name', type=str, default='Untitled')
+
+    args = parser.parse_args()
 
     # configure paths
     make_new_dir = True
@@ -95,6 +103,10 @@ def main():
     epsilon_end = train_config.getfloat('train', 'epsilon_end')
     epsilon_decay = train_config.getfloat('train', 'epsilon_decay')
     checkpoint_interval = train_config.getint('train', 'checkpoint_interval')
+    api_token = train_config.get('neptune', 'api_token')
+    neptune_project = train_config.get('neptune', 'neptune_project')
+    num_epi_in_count = train_config.getint('train_sim', 'num_epi_in_count')
+    train_render_interval = train_config.getint('train', 'train_render_interval')
 
     # configure trainer and explorer
     memory = ReplayMemory(capacity)
@@ -102,6 +114,28 @@ def main():
     batch_size = train_config.getint('trainer', 'batch_size')
     trainer = Trainer(model, memory, device, batch_size)
     explorer = Explorer(env, robot, device, memory, policy.gamma, target_policy=policy)
+
+    # ----------------------------  neptune params --------------------------------
+    params = {"output_dir": args.output_dir, "evaluation_interval":evaluation_interval,
+              "train_episodes": train_episodes, "target_update_interval": target_update_interval,
+              "device": args.device, "epsilon_start": epsilon_start, "memory_capacity":capacity,
+              "epsilon_end": epsilon_end, "epsilon_decay": epsilon_decay, "num_epi_in_count": num_epi_in_count
+              }
+    mem_success = ReplayMemory(num_epi_in_count)
+    mem_collision = ReplayMemory(num_epi_in_count)
+    mem_timeout = ReplayMemory(num_epi_in_count)
+
+    # ============== neptune things  ================
+    if args.neptune:
+        run = neptune.init_run(
+            project=neptune_project,
+            api_token=api_token,
+            name=args.neptune_name
+        )
+        run["parameters"] = params
+        run["config/env"].upload(args.env_config)
+        run["config/policy"].upload(args.policy_config)
+        run["config/train"].upload(args.train_config)
 
     # imitation learning
     if args.resume:
@@ -128,6 +162,12 @@ def main():
         il_policy.safety_space = safety_space
         robot.set_policy(il_policy)
         explorer.run_k_episodes(il_episodes, 'train', update_memory=True, imitation_learning=True)
+        explorer.env.render("video", os.path.join(args.output_dir, "il_sample" + ".gif"))
+        if args.neptune:
+            video_tag = "il_vi"
+            Resize_GIF(os.path.join(args.output_dir, "il_sample" + ".gif"))
+            run[video_tag + "/" + video_tag + "_ep" + ".gif"].upload(
+                os.path.join(args.output_dir, "il_sample" + ".gif"))  # upload to neptune
         trainer.optimize_epoch(il_epochs)
         torch.save(model.state_dict(), il_weight_file)
         logging.info('Finish imitation learning. Weights saved.')
@@ -157,12 +197,42 @@ def main():
 
         # evaluate the model
         if episode % evaluation_interval == 0:
-            explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
+            _, success_rate, collision_rate, timeout_rate=explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
+            if args.neptune:
+                run["val/success_rate"].log(success_rate)  # log to neptune
+                run["val/collision_rate"].log(collision_rate)  # log to neptune
+                run["val/timeout_rate"].log(timeout_rate)  # log to neptune
+            video_tag = "val_vi"
+            explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
+            if args.neptune:
+                Resize_GIF(os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
+                run[video_tag + "/" + video_tag + "_ep" + str(episode) + ".gif"].upload(
+                    os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))  # upload to neptune
 
         # sample k episodes into memory and optimize over the generated memory
-        explorer.run_k_episodes(sample_episodes, 'train', update_memory=True, episode=episode)
-        trainer.optimize_batch(train_batches)
+        _, success, collision, timeout = explorer.run_k_episodes(sample_episodes, 'train', update_memory=True, episode=episode, returnRate=False)
+        mem_success.push(success)
+        mem_collision.push(collision)
+        mem_timeout.push(timeout)
+        total_epi = sum(mem_success.memory) + sum(mem_timeout.memory) + sum(mem_collision.memory)
+        if args.neptune:
+            run["exp_in_mix/success_rate"].log(sum(mem_success.memory) / total_epi)  # log to neptune
+            run["exp_in_mix/collision_rate"].log(sum(mem_collision.memory) / total_epi)  # log to neptune
+            run["exp_in_mix/timeout_rate"].log(sum(mem_timeout.memory) / total_epi)  # log to neptune
+
+        average_loss = trainer.optimize_batch(train_batches)
+        if args.neptune:
+            run["train_value_network/loss"].log(average_loss)  # log to neptune
+            run["train_value_network/PositiveRate"].log(PositiveRate(memory))  # log to neptune
         episode += 1
+
+        if (episode + 1) % train_render_interval == 0 or episode == 0:
+            video_tag = "train_vi"
+            explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
+            if args.neptune:
+                Resize_GIF(os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
+                run[video_tag + "/" + video_tag + "_ep" + str(episode) + ".gif"].upload(
+                    os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))  # upload to neptune
 
         if episode % target_update_interval == 0:
             explorer.update_target_model(model)
@@ -172,7 +242,13 @@ def main():
 
     # final test
     explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode)
-
+    video_tag = "test_vi"
+    explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
+    if args.neptune:
+        Resize_GIF(os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
+        run[video_tag + "/" + video_tag + "_ep" + str(episode) + ".gif"].upload(
+            os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))  # upload to neptune
+        run.stop()
 
 if __name__ == '__main__':
     main()

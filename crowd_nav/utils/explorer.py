@@ -29,7 +29,7 @@ class Explorer(object):
 
     # @profile
     def run_k_episodes(self, k, phase, update_memory=False, imitation_learning=False, episode=None,
-                       print_failure=False,update_raw_ob=False, stay=False):
+                       print_failure=False,update_raw_ob=False, stay=False, returnRate=True):
         self.robot.policy.set_phase(phase)
         success_times = []
         collision_times = []
@@ -117,8 +117,10 @@ class Explorer(object):
         if print_failure:
             logging.info('Collision cases: ' + ' '.join([str(x) for x in collision_cases]))
             logging.info('Timeout cases: ' + ' '.join([str(x) for x in timeout_cases]))
-
-        return average(cumulative_rewards), success_rate, collision_rate, timeout_rate
+        if returnRate:
+            return average(cumulative_rewards), success_rate, collision_rate, timeout_rate
+        else:
+            return average(cumulative_rewards), success, collision, (k - success - collision)
 
     def update_memory(self, states, actions, rewards, imitation_learning=False):
         if self.memory is None or self.gamma is None:
