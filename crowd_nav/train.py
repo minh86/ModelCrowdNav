@@ -192,6 +192,8 @@ def main():
             else:
                 epsilon = epsilon_end
         robot.policy.set_epsilon(epsilon)
+        if args.neptune:
+            run["Current Episode"].log("%d / %d" % (episode, train_episodes))  # log to neptune
 
         # evaluate the model
         if episode % evaluation_interval == 0:

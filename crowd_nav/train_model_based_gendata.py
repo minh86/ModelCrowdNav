@@ -51,6 +51,8 @@ parser.add_argument('--world_model', type=str, default='mlp')
 parser.add_argument('--neptune_name', type=str, default='Untitled')
 parser.add_argument('--add_positive', default=False, action='store_true') # adding fake positive experience to combat timeout
 parser.add_argument('--gradual', default=False, action='store_true') # gradually changing human num
+parser.add_argument('--reinit_world', default=False, action='store_true') # gradually changing human num
+
 args = parser.parse_args()
 
 # In[3]:
@@ -292,8 +294,9 @@ for episode in tqdm(range(train_episodes)):
     robot.policy.set_epsilon(epsilon)
 
     # train world model
-    # model_sim.apply(init_weight)  # reinit weight before training
-    ms_valid_loss = trainer_sim.optimize_epoch(train_world_epochs)
+    if args.reinit_world:
+        model_sim.apply(init_weight)  # reinit weight before training
+    ms_valid_loss = trainer_sim.optimize_epoch(train_world_epochs, reset=args.reinit_world)
     if args.neptune:
         run["train_world_model/loss"].log(ms_valid_loss)  # log to neptune
         if args.gradual:

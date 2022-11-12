@@ -36,7 +36,7 @@ class Trainer_Sim(object):
         # self.optimizer = optim.SGD(self.model.parameters(), lr=learning_rate, momentum=0.9)
         self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
 
-    def optimize_epoch(self, num_epochs):
+    def optimize_epoch(self, num_epochs, reset=False):
         train_losses = []
         valid_losses = []
         train_num = int(len(self.memory) * self.train_size)
@@ -48,6 +48,8 @@ class Trainer_Sim(object):
         self.val_data_loader = DataLoader(self.memory[train_num:], self.batch_size, shuffle=True)
         self.early_stopping.counter = 0
         self.early_stopping.early_stop = False
+        if reset:
+            self.early_stopping.best_score=None
         for epoch in range(num_epochs):
             # Training
             self.model.train()
@@ -92,5 +94,5 @@ class Trainer_Sim(object):
                 break
 
         self.model.load_state_dict(torch.load(self.path))  # load best model
-        self.model.mse = 0-self.early_stopping.best_score
+        self.model.mse = 0-self.early_stopping.best_score # use to add noise to MLP
         return - self.early_stopping.best_score
