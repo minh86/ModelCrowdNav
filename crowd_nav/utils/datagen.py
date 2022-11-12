@@ -284,6 +284,8 @@ class DataGen(object):
         for _ in range(num_sample):
             # get real experience
             raw_states = self.get_real_state(random_epi=True, max_human=max_human)
+            if len(raw_states) <= min_end:
+                continue
             length = random.randrange(min_end, len(raw_states))
             raw_states = raw_states[:length]
             # set env to replay mode
