@@ -94,7 +94,7 @@ def main():
         run["config/policy"].upload(args.policy_config)
         run["config/train"].upload(args.train_config)
     for w_file in weight_files:
-        robot.policy.model.load_state_dict(torch.load(w_file))  # load best model
+        robot.policy.model.load_state_dict(torch.load(w_file, map_location=device))  # load best model
         f = os.path.basename(w_file).split('.')[0]
         for i in range(args.min_human_num, args.max_human_num, args.step_human_num):
             # final test
