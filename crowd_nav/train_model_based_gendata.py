@@ -371,10 +371,13 @@ if args.neptune:
 if not args.no_val: # load model from validation
     logging.info("Load best RL model")
     robot.policy.model.load_state_dict(torch.load(rl_weight_file))  # load best model
-explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode)
+cumulative_rewards, success_rate, collision_rate, timeout_rate = explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode)
 video_tag="test_vi"
 explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
 if args.neptune:
+    run["test/success_rate"].log(success_rate)  # log to neptune
+    run["test/collision_rate"].log(collision_rate)  # log to neptune
+    run["test/timeout_rate"].log(timeout_rate)  # log to neptune
     Resize_GIF(os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
     run[video_tag+"/"+video_tag + "_ep" + str(episode) + ".gif"].upload(
                 os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))  # upload to neptune
