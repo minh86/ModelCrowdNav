@@ -32,6 +32,7 @@ def main():
     parser.add_argument('--device', type=str, default='cpu')
     parser.add_argument('--neptune', default=False, action='store_true')
     parser.add_argument('--neptune_name', type=str, default='Untitled')
+    parser.add_argument('--human_num', type=int, default=5)
 
     args = parser.parse_args()
 
@@ -84,6 +85,9 @@ def main():
     env.configure(env_config)
     robot = Robot(env_config, 'robot')
     env.set_robot(robot)
+
+    max_human = args.human_num
+    env.human_num = max_human
 
     # read training parameters
     if args.train_config is None:

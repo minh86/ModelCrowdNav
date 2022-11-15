@@ -52,6 +52,8 @@ parser.add_argument('--neptune_name', type=str, default='Untitled')
 parser.add_argument('--add_positive', default=False, action='store_true') # adding fake positive experience to combat timeout
 parser.add_argument('--gradual', default=False, action='store_true') # gradually changing human num
 parser.add_argument('--reinit_world', default=False, action='store_true') # gradually changing human num
+parser.add_argument('--human_num', type=int, default=5)
+
 
 args = parser.parse_args()
 
@@ -145,7 +147,8 @@ neptune_project = train_config.get('neptune', 'neptune_project')
 num_epi_in_count = train_config.getint('train_sim', 'num_epi_in_count')
 target_average_success = train_config.getfloat('train_sim', 'target_average_success')
 
-max_human = -1
+max_human = args.human_num
+env.human_num = max_human
 if args.gradual:
     seq_success = ReplayMemory(num_epi_in_count)
     max_human = 1
@@ -222,6 +225,7 @@ ms_valid_loss = trainer_sim.optimize_epoch(train_world_epochs)
 logging.info('Model-based env.  val_loss: {:.4f}'.format(ms_valid_loss))
 
 # ============ imitation learning  ====================
+logging.info("Start imitation learning...")
 il_episodes = train_config.getint('imitation_learning', 'il_episodes')
 il_policy = train_config.get('imitation_learning', 'il_policy')
 il_epochs = train_config.getint('imitation_learning', 'il_epochs')
