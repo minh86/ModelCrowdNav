@@ -266,8 +266,10 @@ class DataGen(object):
                 if len(possible_case) == 0:# cant find possible init position
                     return [], RobotInfo(None, None, None, None)
                 set_robot = random.choice(possible_case)
+                rid = set_robot-1
+                init_state = obs[0][:rid]+obs[0][rid+1:]
                 init_dis = [np.linalg.norm([start_end[set_robot][0] - h.px, start_end[set_robot][1] - h.py]) for h in
-                            obs[0]]
+                            init_state]
                 min_dis = min(init_dis)
                 min_id = np.argmin(init_dis)
                 possible_case.pop(min_id)
