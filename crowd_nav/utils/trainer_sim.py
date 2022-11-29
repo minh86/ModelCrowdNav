@@ -12,6 +12,15 @@ sys.path.append('../')
 from crowd_nav.utils.pytorchtools import EarlyStopping
 import torch
 
+def collate_fn(batch):
+    current_s = []; action = []; next_s=[]; rewards=[]
+    size = batch[0][0].shape
+    device = batch[0][0].device
+    for item in batch:
+        if item[0].shape == size:
+            current_s.append(item[0])
+            next_s.append(item[1])
+    return [torch.stack(current_s), torch.stack(next_s)]
 
 class Trainer_Sim(object):
     def __init__(self, model, memory, device, batch_size, path):
@@ -44,8 +53,8 @@ class Trainer_Sim(object):
             raise ValueError('Learning rate is not set!')
         # if self.data_loader is None:
         random.shuffle(self.memory.memory)
-        self.data_loader = DataLoader(self.memory[:train_num], self.batch_size, shuffle=True)
-        self.val_data_loader = DataLoader(self.memory[train_num:], self.batch_size, shuffle=True)
+        self.data_loader = DataLoader(self.memory[:train_num], self.batch_size, shuffle=True, collate_fn=collate_fn)
+        self.val_data_loader = DataLoader(self.memory[train_num:], self.batch_size, shuffle=True, collate_fn=collate_fn)
         self.early_stopping.counter = 0
         self.early_stopping.early_stop = False
         if reset:
@@ -55,8 +64,7 @@ class Trainer_Sim(object):
             self.model.train()
             for data in self.data_loader:
                 # State , Action , Next State, Reward
-                cur_states, _, next_states, _ = data
-                next_states = next_states[:, :, 2:]
+                cur_states, next_states = data
                 cur_states = cur_states.reshape(cur_states.size(0), -1)
                 cur_states = Variable(cur_states).to(self.device)
                 next_states = Variable(next_states).to(self.device)
@@ -72,8 +80,7 @@ class Trainer_Sim(object):
             # Evaluation
             self.model.eval()
             for data in self.val_data_loader:
-                cur_states, _, next_states, _ = data
-                next_states = next_states[:, :, 2:]
+                cur_states, next_states = data
                 cur_states = cur_states.reshape(cur_states.size(0), -1)
                 cur_states = Variable(cur_states).to(self.device)
                 next_states = Variable(next_states).to(self.device)

@@ -110,9 +110,9 @@ class ORCA(Policy):
                 self.sim.setAgentVelocity(i + 1, human_state.velocity)
 
         # Set the preferred velocity to be a vector of unit magnitude (speed) in the direction of the goal.
-        velocity = np.array((self_state.gx - self_state.px, self_state.gy - self_state.py))
-        speed = np.linalg.norm(velocity)
-        pref_vel = velocity / speed if speed > 1 else velocity
+        pref_vel = np.array((self_state.gx - self_state.px, self_state.gy - self_state.py))
+        # speed = np.linalg.norm(velocity)
+        # pref_vel = velocity / speed if speed > 1 else velocity
 
         # Perturb a little to avoid deadlocks due to perfect symmetry.
         # perturb_angle = np.random.random() * 2 * np.pi

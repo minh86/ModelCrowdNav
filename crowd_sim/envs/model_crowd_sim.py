@@ -12,7 +12,6 @@ from crowd_sim.envs.utils.state import ObservableState
 from crowd_sim.envs.utils.action import ActionXY
 import torch
 
-
 class ModelCrowdSim(gym.Env):
     metadata = {'render.modes': ['human']}
 
@@ -267,7 +266,7 @@ class ModelCrowdSim(gym.Env):
         del sim
         return self.human_times
 
-    def reset(self, phase='test', test_case=None):
+    def reset(self, phase='test', test_case=None, no_random_gen=False):
         """
         Set px, py, gx, gy, vx, vy, theta for robot and humans
         :return:
@@ -287,6 +286,9 @@ class ModelCrowdSim(gym.Env):
 
         if self.config.get('humans', 'policy') == 'trajnet':
             raise NotImplementedError
+        if no_random_gen:
+            self.humans = [Human(self.config, 'humans') for _ in range(self.human_num)]
+            self.robot.set(0, -self.circle_radius, 0, self.circle_radius, 0, 0, np.pi / 2)
         else:
             counter_offset = {'train': self.case_capacity['val'] + self.case_capacity['test'],
                               'val': 0, 'test': self.case_capacity['val']}
@@ -335,9 +337,11 @@ class ModelCrowdSim(gym.Env):
     def onestep_lookahead(self, action):
         return self.step(action, update=False)
 
-    def set_current_state(self, obs, phase="train"):
+    def set_current_state(self, obs, robot_info=None, phase="train"):
         self.human_num = len(obs)
-        self.reset(phase)
+        self.reset(phase, no_random_gen=True)
+        if robot_info is not None:
+            self.robot.set(robot_info.px, robot_info.py, robot_info.gx, robot_info.gy, 0, 0, np.pi / 2)
         for i, ob in enumerate(obs):
             self.humans[i].set(ob.px, ob.py, 0, 0, ob.vx, ob.vy, 0)
 
@@ -447,7 +451,7 @@ class ModelCrowdSim(gym.Env):
         x_offset = 0.11
         y_offset = 0.11
         cmap = plt.cm.get_cmap('hsv', 10)
-        robot_color = 'yellow'
+        robot_color = 'red'
         goal_color = 'red'
         arrow_color = 'red'
         arrow_style = patches.ArrowStyle("->", head_length=4, head_width=2)
@@ -464,8 +468,8 @@ class ModelCrowdSim(gym.Env):
         elif mode == 'traj':
             fig, ax = plt.subplots(figsize=(7, 7))
             ax.tick_params(labelsize=16)
-            ax.set_xlim(-5, 5)
-            ax.set_ylim(-5, 5)
+            ax.set_xlim(-12, 12)
+            ax.set_ylim(-12, 12)
             ax.set_xlabel('x(m)', fontsize=16)
             ax.set_ylabel('y(m)', fontsize=16)
 
@@ -505,84 +509,103 @@ class ModelCrowdSim(gym.Env):
         elif mode == 'video':
             fig, ax = plt.subplots(figsize=(7, 7))
             ax.tick_params(labelsize=16)
-            ax.set_xlim(-6, 6)
-            ax.set_ylim(-6, 6)
             ax.set_xlabel('x(m)', fontsize=16)
             ax.set_ylabel('y(m)', fontsize=16)
 
             # add robot and its goal
             robot_positions = [state[0].position for state in self.states]
-            goal = mlines.Line2D([0], [4], color=goal_color, marker='*', linestyle='None', markersize=15, label='Goal')
+            goal = mlines.Line2D([self.robot.gx], [self.robot.gy], color=goal_color, marker='*', linestyle='None', markersize=15, label='Goal')
             robot = plt.Circle(robot_positions[0], self.robot.radius, fill=True, color=robot_color)
             ax.add_artist(robot)
             ax.add_artist(goal)
             plt.legend([robot, goal], ['Robot', 'Goal'], fontsize=16)
 
             # add humans and their numbers
-            human_positions = [[state[1][j].position for j in range(len(self.humans))] for state in self.states]
+            human_positions = [[state[1][j].position for j in range(len(state[1]))] for state in self.states]
             humans = [plt.Circle(human_positions[0][i], self.humans[i].radius, fill=False)
-                      for i in range(len(self.humans))]
+                      for i in range(len(human_positions[0]))]
             human_numbers = [plt.text(humans[i].center[0] - x_offset, humans[i].center[1] - y_offset, str(i),
-                                      color='black', fontsize=12) for i in range(len(self.humans))]
+                                      color='black', fontsize=6) for i in range(len(humans))]
             for i, human in enumerate(humans):
                 ax.add_artist(human)
                 ax.add_artist(human_numbers[i])
 
+            # set x, y limit
+            bound = int(max(np.absolute([robot_positions[0][0], robot_positions[0][1], self.robot.gx, self.robot.gy]))) + 3
+            ax.set_xlim(-bound, bound)
+            ax.set_ylim(-bound, bound)
+
             # add time annotation
-            time = plt.text(-1, 5, 'Time: {}'.format(0), fontsize=16)
+            time = plt.text(-(bound/10), bound-1, 'Time: {}'.format(0), fontsize=16)
             ax.add_artist(time)
 
-            # compute attention scores
-            if self.attention_weights is not None:
-                attention_scores = [
-                    plt.text(-5.5, 5 - 0.5 * i, 'Human {}: {:.2f}'.format(i + 1, self.attention_weights[0][i]),
-                             fontsize=16) for i in range(len(self.humans))]
+            # # compute attention scores
+            # if self.attention_weights is not None:
+            #     attention_scores = [
+            #         plt.text(-5.5, 5 - 0.5 * i, 'Human {}: {:.2f}'.format(i + 1, self.attention_weights[0][i]),
+            #                  fontsize=16) for i in range(len(self.humans))]
 
-            # compute orientation in each step and use arrow to show the direction
-            radius = self.robot.radius
-            if self.robot.kinematics == 'unicycle':
-                orientation = [((state[0].px, state[0].py), (state[0].px + radius * np.cos(state[0].theta),
-                                                             state[0].py + radius * np.sin(state[0].theta))) for state
-                               in self.states]
-                orientations = [orientation]
-            else:
-                orientations = []
-                for i in range(self.human_num + 1):
-                    orientation = []
-                    for state in self.states:
-                        if i == 0:
-                            agent_state = state[0]
-                        else:
-                            agent_state = state[1][i - 1]
-                        theta = np.arctan2(agent_state.vy, agent_state.vx)
-                        orientation.append(((agent_state.px, agent_state.py), (agent_state.px + radius * np.cos(theta),
-                                                                               agent_state.py + radius * np.sin(
-                                                                                   theta))))
-                    orientations.append(orientation)
-            arrows = [patches.FancyArrowPatch(*orientation[0], color=arrow_color, arrowstyle=arrow_style)
-                      for orientation in orientations]
-            for arrow in arrows:
-                ax.add_artist(arrow)
+            # # compute orientation in each step and use arrow to show the direction
+            # radius = self.robot.radius
+            # if self.robot.kinematics == 'unicycle':
+            #     orientation = [((state[0].px, state[0].py), (state[0].px + radius * np.cos(state[0].theta),
+            #                                                  state[0].py + radius * np.sin(state[0].theta))) for state
+            #                    in self.states]
+            #     orientations = [orientation]
+            # else:
+            #     orientations = []
+            #     for i in range(self.human_num + 1):
+            #         orientation = []
+            #         for state in self.states:
+            #             if i == 0:
+            #                 agent_state = state[0]
+            #             else:
+            #                 agent_state = state[1][i - 1]
+            #             theta = np.arctan2(agent_state.vy, agent_state.vx)
+            #             orientation.append(((agent_state.px, agent_state.py), (agent_state.px + radius * np.cos(theta),
+            #                                                                    agent_state.py + radius * np.sin(
+            #                                                                        theta))))
+            #         orientations.append(orientation)
+            # arrows = [patches.FancyArrowPatch(*orientation[0], color=arrow_color, arrowstyle=arrow_style)
+            #           for orientation in orientations]
+            # for arrow in arrows:
+            #     ax.add_artist(arrow)
             global_step = 0
 
             def update(frame_num):
                 nonlocal global_step
-                nonlocal arrows
+                # nonlocal arrows
                 global_step = frame_num
                 robot.center = robot_positions[frame_num]
+
+                # add new humans
+                if len(human_positions[frame_num]) > len(human_numbers):
+                    j = len(human_numbers)
+                    add_humans = [plt.Circle(human_positions[frame_num][i], self.humans[i].radius, fill=False)
+                               for i in range(j, len(human_positions[frame_num]))]
+
+                    add_human_numbers = [
+                        plt.text(add_humans[i].center[0] - x_offset, add_humans[i].center[1] - y_offset, str(i+j),
+                                 color='black', fontsize=6) for i in range(len(add_humans))]
+                    for i, _ in enumerate(add_humans):
+                        ax.add_artist(add_humans[i])
+                        ax.add_artist(add_human_numbers[i])
+                    humans.extend(add_humans)
+                    human_numbers.extend(add_human_numbers)
+
                 for i, human in enumerate(humans):
                     human.center = human_positions[frame_num][i]
                     human_numbers[i].set_position((human.center[0] - x_offset, human.center[1] - y_offset))
-                    for arrow in arrows:
-                        arrow.remove()
-                    arrows = [patches.FancyArrowPatch(*orientation[frame_num], color=arrow_color,
-                                                      arrowstyle=arrow_style) for orientation in orientations]
-                    for arrow in arrows:
-                        ax.add_artist(arrow)
-                    if self.attention_weights is not None:
-                        human.set_color(str(self.attention_weights[frame_num][i]))
-                        attention_scores[i].set_text('human {}: {:.2f}'.format(i, self.attention_weights[frame_num][i]))
 
+                    # for arrow in arrows:
+                    #     arrow.remove()
+                    # arrows = [patches.FancyArrowPatch(*orientation[frame_num], color=arrow_color,
+                    #                                   arrowstyle=arrow_style) for orientation in orientations]
+                    # for arrow in arrows:
+                    #     ax.add_artist(arrow)
+                    # if self.attention_weights is not None:
+                    #     human.set_color(str(self.attention_weights[frame_num][i]))
+                    #     attention_scores[i].set_text('human {}: {:.2f}'.format(i, self.attention_weights[frame_num][i]))
                 time.set_text('Time: {:.2f}'.format(frame_num * self.time_step))
 
             def plot_value_heatmap():

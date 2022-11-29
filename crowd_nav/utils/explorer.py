@@ -58,15 +58,17 @@ class Explorer(object):
                 current_s = [tmpo.getvalue() for tmpo in ob]
                 ob, reward, done, info = self.env.step(action)
                 next_s = [tmpo.getvalue() for tmpo in ob]
+                next_action = [s[2:] for s in next_s]
+                next_action = next_action[:len(current_s)]
 
                 # Store observation for generating data
                 if self.raw_memory is not None:
                     self.raw_memory.push((ob,reward,done,info))
 
                 # Create training data for model-based
-                if update_raw_ob: # State , Action , Next State, Reward
+                if update_raw_ob: # State , Next human's action
                     if self.someone_is_moving(ob):
-                        self.rawob.push((torch.Tensor(current_s),torch.Tensor(action),torch.Tensor(next_s), torch.tensor(reward)))
+                        self.rawob.push((torch.Tensor(current_s), torch.Tensor(next_action)))
                 
                 states.append(self.robot.policy.last_state)
                 actions.append(action)

@@ -1,7 +1,11 @@
 import logging
 import itertools
 import copy
+import math
+import os
 import random
+from collections import namedtuple
+
 import numpy as np
 from numpy.linalg import norm
 import torch
@@ -14,6 +18,7 @@ from crowd_sim.envs.utils.utils import point_to_segment_dist
 class DataGen(object):
 
     def __init__(self, memory, robot, env, policy):
+        self.counter = 0
         self.raw_memory = None
         self.action_space = None
         self.memory = memory
@@ -40,8 +45,8 @@ class DataGen(object):
         raw_states = []
         done = False
         i = 0
-        if max_human>0:
-            self.env.human_num=max_human
+        if max_human > 0:
+            self.env.human_num = max_human
         ob = self.env.reset(phase)
         state = JointState(self.full_state, ob)
         raw_states.append(state)
@@ -213,44 +218,72 @@ class DataGen(object):
                 return True
         return False
 
-    # get index for final state
-    def get_episode_end_index(self):
-        indexes = []
-        for i, (ob, reward, done, info) in enumerate(self.raw_memory):
-            if done:
+    # get index for first state
+    def get_episode_start_index(self):
+        indexes = [];
+        add = True
+        for i, (ob, reward, done, info, _) in enumerate(self.raw_memory):
+            if add:
                 indexes.append(i)
+                add = False
+            if done:
+                add = True
         return indexes
 
-    # get last real episode
-    def pick_last_real_episode(self, random_epi=False, max_human=-1):
+    # get a real episode
+    def pick_real_episode(self, random_epi=False, max_human=-1):
         obs = []
+        indexes = self.get_episode_start_index()
         if random_epi:
-            indexes = self.get_episode_end_index()
             i = random.choice(indexes)
-            mem_states = self.raw_memory[:i]
         else:
-            mem_states = self.raw_memory
-        for i, (ob, reward, done, info) in enumerate(mem_states[::-1]):
-            if self.someone_is_moving(ob):
-                if 0 < max_human < len(ob):
-                    ob=ob[:max_human]
-                obs.append(ob)
-            if done and i != 0:
+            i = indexes[self.counter % len(indexes)]
+            self.counter += 1
+        mem_states = self.raw_memory[i:]
+        for i, (ob, reward, done, info, start_ends) in enumerate(mem_states):
+            # if self.someone_is_moving(ob):
+            if 0 < max_human < len(ob):
+                ob = ob[:max_human]
+            obs.append(ob)
+            if done:
                 break
-        return obs[::-1]
+        return obs, start_ends
 
     # create JointState from last real episode
-    def get_real_state(self, random_epi=False, max_human=-1):
-        obs = self.pick_last_real_episode(random_epi=random_epi, max_human=max_human)
+    def get_real_state(self, random_epi=False, max_human=-1, random_robot=True):
+        RobotInfo = namedtuple('RobotInfo', ['px', 'py', 'gx', 'gy'])
+        obs, start_end = self.pick_real_episode(random_epi=random_epi, max_human=max_human)
         raw_states = []
+        distances = [np.linalg.norm([p[2] - p[0], p[3] - p[1]]) for p in start_end]
+        if random_robot is False:  # replace robot by human with the longest path
+            set_robot = np.argmax(distances)
+        else:
+            # random replace human with robot
+            avr_dis = np.average(distances)
+            possible_case = [i for i in range(len(distances)) if distances[i] > avr_dis]
+            min_dis = 0
+            while min_dis < self.robot.radius*2: # check if robot collide with human at init state
+                set_robot = random.choice(possible_case)
+                init_dis = [np.linalg.norm([start_end[set_robot][0] - h.px, start_end[set_robot][1] - h.py]) for h in
+                            obs[0]]
+                min_dis = min(init_dis)
+
+        # set start and goal position for robot
+        robot_info = RobotInfo(start_end[set_robot][0], start_end[set_robot][1], start_end[set_robot][2],
+                               start_end[set_robot][3])
+
+        # remove human traj which is replaced by robot
+        h_id = abs(set_robot) - 1
+        obs = [ob[:h_id] + ob[h_id + 1:] if len(ob) > h_id else ob for ob in obs]
+
         for ob in obs:
             state = JointState(self.full_state, ob)
             raw_states.append(state)
-        return raw_states
+        return raw_states, robot_info
 
     # add sim states to real states
     def create_imagine_on_real(self, states, min_end=7, min_sim_state=3, max_sim_state=15):
-        length = random.randrange(min_end, len(states)-5)
+        length = random.randrange(min_end, len(states) - 5)
         num_sim_state = random.randrange(min_sim_state, max_sim_state)
         raw_states = states[:length]
         human_states = raw_states[-1].human_states
@@ -264,62 +297,109 @@ class DataGen(object):
 
         return raw_states
 
-    # gen data from real observation
-    def gen_new_data_from_real(self, num_sample, imitation_learning=False, reach_goal=True, add_sim=False, max_human=-1):
-        for _ in range(num_sample):
-            # Get random real state from raw observation
-            states = self.get_real_state(max_human=max_human)
-            # Create few imagine state, branching from random real state
-            if add_sim:
-                states = self.create_imagine_on_real(states)
-            # start from end episode (goal or human (collision case)), make up random action for each state, collect reward
-            states, rewards = self.edit_episode(states, reach_goal)
-            # add data to memory
-            self.correct_and_update(states, rewards, imitation_learning)
-
     # gen data by explore in mix reality
-    def gen_data_from_explore_in_mix(self, num_sample, phase="train", min_end=1, max_human=-1, imitation_learning=False):
+    def gen_data_from_explore_in_mix(self, num_sample, phase="train", min_end=1, max_human=-1, imitation_learning=False,
+                                     add_sim=True, stay=False, random_epi=True, random_robot=True, render_path=None):
+        '''
+        set_robot = 0: doesn't used; n (positive) replace human n-th, same direction; -n human n-th reverse direction
+        render_path: render every episode (for debug only)
+        random_robot: replace robot start end goal by random human traj
+        random_epi: pick random episode from real experience
+        add_sim: add sim state base on real experience
+        '''
+
         reach_goal = 0
         collision = 0
-        for _ in range(num_sample):
+        cumulative_rewards = []
+        success_times = []
+        collision_times = []
+        timeout_times = []
+        too_close = 0
+        min_dist = []
+        self.policy.set_phase(phase)
+        for c_sample in range(num_sample):
             # get real experience
-            raw_states = self.get_real_state(random_epi=True, max_human=max_human)
+            raw_states, robot_info = self.get_real_state(random_epi=random_epi, max_human=max_human,
+                                                         random_robot=random_robot)
             if len(raw_states) <= min_end:
                 continue
-            length = random.randrange(min_end, len(raw_states))
+            length = len(raw_states)
+            if add_sim:
+                length = random.randrange(min_end, len(raw_states))
             raw_states = raw_states[:length]
             # set env to replay mode
             human_states = raw_states[0].human_states
-            self.env.set_current_state(human_states)
+            self.env.set_current_state(human_states, robot_info)
             # explore states and collect reward with robot policy
             states = []
             rewards = []
             done = False
-            i=0
+            i = 0
             joined_state = JointState(self.env.robot.get_full_state(), raw_states[0].human_states)
             info = None
             while not done:
-                action = self.policy.predict(joined_state)
-                if i+1 < len(raw_states): # replay real experience
-                    next_h_action = [h.getvel() for h in raw_states[i+1].human_states]
-                else: # imagine next state when needed
-                    next_h_action = None
-                ob, reward, done, info = self.env.step(action, new_v = next_h_action)
+                if not stay:
+                    action = self.policy.predict(joined_state)
+                else:  # make robot stay for debug
+                    holonomic = True if self.robot.policy.kinematics == 'holonomic' else False
+                    action = ActionXY(0, 0) if holonomic else ActionRot(0, 0)
+
+                # replay real experience
+                if i + 1 < len(raw_states):
+                    next_h_action = [h.getvel() for h in raw_states[i + 1].human_states]
+                    ob, reward, done, info = self.env.step(action, new_v=next_h_action)
+                    # add more human when needed
+                    n_state = raw_states[i + 1]
+                    n_human_num = len(n_state.human_states)
+                    if n_human_num > self.env.human_num:
+                        diff = n_human_num - self.env.human_num
+                        self.env.humans += [copy.deepcopy(self.env.humans[0]) for _ in range(diff)]
+                        for h_i, h_state in enumerate(n_state.human_states):
+                            self.env.humans[h_i].set(h_state.px, h_state.py, 0, 0, h_state.vx, h_state.vy, 0)
+                        self.env.human_num = n_human_num
+                        ob = n_state.human_states
+
+                # imagine next state when needed
+                else:
+                    if add_sim:
+                        next_h_action = None
+                    else:
+                        next_h_action = [[0, 0]] * len(human_states)
+                    ob, reward, done, info = self.env.step(action, new_v=next_h_action)
+
                 states.append(self.transform(joined_state))
                 rewards.append(reward)
                 joined_state = JointState(self.env.robot.get_full_state(), ob)
-                i+=1
+                i += 1
+                if isinstance(info, Danger):
+                    too_close += 1
+                    min_dist.append(info.min_dist)
+
             if isinstance(info, ReachGoal) or isinstance(info, Collision):
-                self.update_memory(states, rewards,imitation_learning=imitation_learning)
+                self.update_memory(states, rewards, imitation_learning=imitation_learning)
             if isinstance(info, ReachGoal):
-                reach_goal+=1
+                reach_goal += 1
+                success_times.append(self.env.global_time)
             if isinstance(info, Collision):
-                collision+=1
+                collision += 1
+                collision_times.append(self.env.global_time)
+            elif isinstance(info, Timeout):
+                timeout_times.append(self.env.time_limit)
+            if render_path is not None:
+                self.env.render("video", os.path.join(render_path, str(c_sample) + ".gif"))
+            cumulative_rewards.append(sum([pow(self.gamma, t * self.robot.time_step * self.robot.v_pref)
+                                           * reward for t, reward in enumerate(rewards)]))
         success_rate = reach_goal / num_sample
         collision_rate = collision / num_sample
-        logging.info('Exp in mix has success rate: {:.2f}, collision rate: {:.2f}'
-                     .format(success_rate, collision_rate))
-        return reach_goal, collision, (num_sample - reach_goal - collision)
+        avg_nav_time = sum(success_times) / len(success_times) if success_times else self.env.time_limit
+        logging.info('Exp in mix has success rate: {:.2f}, collision rate: {:.2f}, nav time: {:.2f}, total reward: {:.4f}'
+                     .format(success_rate, collision_rate, avg_nav_time, np.average(cumulative_rewards)))
+        if phase in ['val', 'test']:
+            num_step = sum(success_times + collision_times + timeout_times) / self.robot.time_step
+            logging.info('Frequency of being in danger: %.2f and average min separate distance in danger: %.2f',
+                         too_close / num_step, np.average(min_dist))
+
+        return np.average(cumulative_rewards), reach_goal, collision, (num_sample - reach_goal - collision)
 
     def update_memory(self, states, rewards, imitation_learning=False):
         if self.memory is None or self.gamma is None:

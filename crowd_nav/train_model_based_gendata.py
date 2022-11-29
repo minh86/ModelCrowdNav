@@ -49,11 +49,12 @@ parser.add_argument('--use_linear_to_gen', default=False, action='store_true')
 parser.add_argument('--neptune', default=False, action='store_true')
 parser.add_argument('--world_model', type=str, default='mlp')
 parser.add_argument('--neptune_name', type=str, default='Untitled')
-parser.add_argument('--add_positive', default=False, action='store_true') # adding fake positive experience to combat timeout
-parser.add_argument('--gradual', default=False, action='store_true') # gradually changing human num
-parser.add_argument('--reinit_world', default=False, action='store_true') # gradually changing human num
+parser.add_argument('--add_positive', default=False,
+                    action='store_true')  # adding fake positive experience to combat timeout
+parser.add_argument('--gradual', default=False, action='store_true')  # gradually changing human num
+parser.add_argument('--reinit_world', default=False, action='store_true')  # gradually changing human num
 parser.add_argument('--human_num', type=int, default=5)
-
+parser.add_argument('--use_dataset', default=False, action='store_true')  # using dataset instead of simulator
 
 args = parser.parse_args()
 
@@ -114,8 +115,8 @@ env = gym.make('CrowdSim-v0')
 env.configure(env_config)
 robot = Robot(env_config, 'robot')
 env.set_robot(robot)
-logging.info("Val size: %d",env.case_size['val'])
-logging.info("Test size: %d",env.case_size['test'])
+logging.info("Val size: %d", env.case_size['val'])
+logging.info("Test size: %d", env.case_size['test'])
 
 # read training parameters
 if args.train_config is None:
@@ -133,7 +134,7 @@ epsilon_start = train_config.getfloat('train', 'epsilon_start')
 epsilon_end = train_config.getfloat('train', 'epsilon_end')
 epsilon_decay = train_config.getfloat('train', 'epsilon_decay')
 checkpoint_interval = train_config.getint('train', 'checkpoint_interval')
-train_render_interval =  train_config.getint('train', 'train_render_interval')
+train_render_interval = train_config.getint('train', 'train_render_interval')
 
 model_sim_lr = train_config.getfloat('train_sim', 'model_sim_lr')
 train_world_epochs = train_config.getint('train_sim', 'train_world_epochs')
@@ -147,19 +148,26 @@ neptune_project = train_config.get('neptune', 'neptune_project')
 num_epi_in_count = train_config.getint('train_sim', 'num_epi_in_count')
 target_average_success = train_config.getfloat('train_sim', 'target_average_success')
 
+# dataset config
+train_datapath = train_config.get('dataset', 'train_datapath')
+val_datapath = train_config.get('dataset', 'val_datapath')
+test_datapath = train_config.get('dataset', 'test_datapath')
+stride = train_config.getint('dataset', 'stride')
+windows_size = train_config.getint('dataset', 'windows_size')
+
 max_human = args.human_num
 env.human_num = max_human
 if args.gradual:
     seq_success = ReplayMemory(num_epi_in_count)
     max_human = 1
 # ----------------------------  neptune params --------------------------------
-params ={"output_dir":args.output_dir, "model_sim_lr":model_sim_lr, "train_world_epochs": train_world_epochs,
-         "sample_episodes_in_real_before_train": sample_episodes_in_real_before_train,
-         "sample_episodes_in_sim": sample_episodes_in_sim, "init_train_episodes":init_train_episodes,
-         "train_episodes":train_episodes,"target_update_interval":target_update_interval,
-         "device": args.device, "world_model": args.world_model, "epsilon_start": epsilon_start,
-         "epsilon_end":epsilon_end, "epsilon_decay":epsilon_decay, "num_epi_in_count":num_epi_in_count,
-         "target_average_success": target_average_success}
+params = {"output_dir": args.output_dir, "model_sim_lr": model_sim_lr, "train_world_epochs": train_world_epochs,
+          "sample_episodes_in_real_before_train": sample_episodes_in_real_before_train,
+          "sample_episodes_in_sim": sample_episodes_in_sim, "init_train_episodes": init_train_episodes,
+          "train_episodes": train_episodes, "target_update_interval": target_update_interval,
+          "device": args.device, "world_model": args.world_model, "epsilon_start": epsilon_start,
+          "epsilon_end": epsilon_end, "epsilon_decay": epsilon_decay, "num_epi_in_count": num_epi_in_count,
+          "target_average_success": target_average_success}
 
 # configure trainer and explorer
 memory = ReplayMemory(capacity)
@@ -171,10 +179,10 @@ explorer.rawob = ReplayMemory(capacity)
 explorer.raw_memory = ReplayMemory(capacity)
 
 # config sim environment
-if args.world_model =="mlp":
-    model_sim = MlpWorld(env_config.getint('sim', 'human_num'),multihuman=policy.multiagent_training)
-if args.world_model =="attention":
+if args.world_model == "attention":
     model_sim = AttentionWorld()
+else:
+    model_sim = MlpWorld(env_config.getint('sim', 'human_num'), multihuman=policy.multiagent_training)
 model_sim.to(device)
 model_sim.device = device
 env_sim = gym.make('ModelCrowdSim-v0')
@@ -216,10 +224,30 @@ if args.neptune:
     run["config/policy"].upload(args.policy_config)
     run["config/train"].upload(args.train_config)
 
+# ============  Using dataset  ===============
+
+if not args.use_dataset:
+    logging.info("Collect data from simulation...")
+    explorer.run_k_episodes(sample_episodes_in_real_before_train, 'train', update_memory=False, update_raw_ob=True,
+                            stay=True)
+else:  # -----------  Using trajnet++ dataset  ------------
+    logging.info("Collect data from dataset (trajnet++)...")
+    # load data for training world model (padding stay)
+    _, rawob = GetRealData(dataset_file=train_datapath, limit=100, stride=stride,
+                                          windows_size=windows_size, padding_last="stay")
+    trainer_sim.memory = rawob
+    # load data for training value network (padding moving)
+    train_raw_memory, _ = GetRealData(dataset_file=train_datapath, limit=100, stride=stride,
+                                      windows_size=windows_size)
+    data_generator.raw_memory = train_raw_memory
+
+    # load data for validation and testing
+    val_raw_memory, _ = GetRealData(dataset_file=val_datapath, limit=env.case_size['val'], stride=stride,
+                                    windows_size=windows_size)
+    test_raw_memory, _ = GetRealData(dataset_file=test_datapath, limit=env.case_size['test'], stride=stride,
+                                     windows_size=windows_size)
+
 # ============  training world model  ===============
-# explore real to train sim
-logging.info("Collect data and init phase...")
-explorer.run_k_episodes(sample_episodes_in_real_before_train, 'train', update_memory=False, update_raw_ob=True, stay=True)
 logging.info("Training world model...")
 ms_valid_loss = trainer_sim.optimize_epoch(train_world_epochs)
 logging.info('Model-based env.  val_loss: {:.4f}'.format(ms_valid_loss))
@@ -242,9 +270,15 @@ il_policy.time_step = policy.time_step
 il_policy.device = policy.device
 data_generator.policy = il_policy
 robot.set_policy(il_policy)
-success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explore_in_mix(il_episodes,
-                                                                                         max_human=max_human,
-                                                                                         imitation_learning=True)
+_, success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explore_in_mix(il_episodes,
+                                                                                            max_human=max_human,
+                                                                                            imitation_learning=True,
+                                                                                            # random_robot=False,
+                                                                                            # add_sim=False,
+                                                                                            # random_epi=False,
+                                                                                            # render_path=args.output_dir,
+                                                                                            # stay=True,
+                                                                                            )
 video_tag = "il_vi"
 explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + ".gif"))
 if args.neptune:
@@ -255,28 +289,6 @@ if args.neptune:
 trainer.optimize_epoch(il_epochs)
 data_generator.policy = policy
 robot.set_policy(policy)
-
-# # =======================  init by imagination  ==================
-# for episode in tqdm(range(init_train_episodes)):
-#     # # gen sim data and train
-#     data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=True, imitation_learning=True)
-#     data_generator.gen_new_data(sample_episodes_in_sim, reach_goal=False, imitation_learning=True)
-#
-#     # # gen sim trajectories data from real data
-#     # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=True)
-#     # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=False)
-#
-#     # gen sim trajectories data from mix sim-real data
-#     # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=True, add_sim=True,max_human=max_human, imitation_learning=True)
-#     # data_generator.gen_new_data_from_real(sample_episodes_in_sim, reach_goal=False, add_sim=True, max_human=max_human, imitation_learning=True)
-#     memory.shuffle()
-#     average_loss = trainer.optimize_batch(train_batches)
-#     if args.neptune:
-#         run["train_value_network_init/loss"].log(average_loss) # log to neptune
-#
-#     # update target model
-#     if (episode+1) % target_update_interval == 0:
-#         data_generator.update_target_model(model)
 
 # ==============   gen data by explorer in mix reality  ================
 logging.info("Training phase...")
@@ -313,23 +325,28 @@ for episode in tqdm(range(train_episodes)):
             seq_success.clear()
 
     # let's explore mix reality!
-    success, collision, timeout = data_generator.gen_data_from_explore_in_mix(sample_episodes_in_sim, max_human=max_human)
-    mem_success.push(success); mem_collision.push(collision); mem_timeout.push(timeout)
+    if args.use_dataset:
+        data_generator.raw_memory = train_raw_memory
+    _, success, collision, timeout = data_generator.gen_data_from_explore_in_mix(sample_episodes_in_sim,
+                                                                                 max_human=max_human, phase='train')
+    mem_success.push(success);
+    mem_collision.push(collision);
+    mem_timeout.push(timeout)
     total_epi = sum(mem_success.memory) + sum(mem_timeout.memory) + sum(mem_collision.memory)
     if args.neptune:
-        run["exp_in_mix/success_rate"].log(sum(mem_success.memory)/total_epi)  # log to neptune
-        run["exp_in_mix/collision_rate"].log(sum(mem_collision.memory)/total_epi)  # log to neptune
-        run["exp_in_mix/timeout_rate"].log(sum(mem_timeout.memory)/total_epi)  # log to neptune
+        run["exp_in_mix/success_rate"].log(sum(mem_success.memory) / total_epi)  # log to neptune
+        run["exp_in_mix/collision_rate"].log(sum(mem_collision.memory) / total_epi)  # log to neptune
+        run["exp_in_mix/timeout_rate"].log(sum(mem_timeout.memory) / total_epi)  # log to neptune
 
     if args.gradual:
         seq_success.push(success_rate)
 
-    if (episode + 1) % train_render_interval == 0 or episode==0:
+    if (episode + 1) % train_render_interval == 0 or episode == 0:
         video_tag = "train_vi"
         explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
         if args.neptune:
             Resize_GIF(os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
-            run[video_tag+"/"+video_tag + "_ep" + str(episode) + ".gif"].upload(
+            run[video_tag + "/" + video_tag + "_ep" + str(episode) + ".gif"].upload(
                 os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))  # upload to neptune
 
     # train value network
@@ -342,18 +359,32 @@ for episode in tqdm(range(train_episodes)):
     # evaluate the model
     if (episode + 1) % evaluation_interval == 0 and not args.no_val:
         logging.info("Val in real...")
-        policy.set_env(env)
-        cumulative_rewards, success_rate, collision_rate, timeout_rate = explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
+        video_tag = "val_vi"
+        if args.use_dataset:
+            data_generator.raw_memory = val_raw_memory
+            cumulative_rewards, success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explore_in_mix(
+                env.case_size['val'],
+                max_human=max_human,
+                random_robot=False,
+                add_sim=False,
+                random_epi=False,
+                phase='val',
+                # render_path=args.output_dir,
+            )
+            explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
+        else:
+            policy.set_env(env)
+            cumulative_rewards, success_rate, collision_rate, timeout_rate = explorer.run_k_episodes(
+                env.case_size['val'],
+                'val', episode=episode)
+            explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
         if args.neptune:
             run["val/success_rate"].log(success_rate)  # log to neptune
             run["val/collision_rate"].log(collision_rate)  # log to neptune
             run["val/timeout_rate"].log(timeout_rate)  # log to neptune
-        video_tag = "val_vi"
-        explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
-        if args.neptune:
             Resize_GIF(os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
-            run[video_tag+"/"+video_tag + "_ep" + str(episode) + ".gif"].upload(
-                os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif")) # upload to neptune
+            run[video_tag + "/" + video_tag + "_ep" + str(episode) + ".gif"].upload(
+                os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))  # upload to neptune
 
         if cumulative_rewards > best_cumulative_rewards and args.no_val == False:
             best_cumulative_rewards = cumulative_rewards
@@ -363,26 +394,43 @@ for episode in tqdm(range(train_episodes)):
                 run["model/best_val"].upload(rl_weight_file)
 
     # update target model
-    if (episode+1) % target_update_interval == 0:
+    if (episode + 1) % target_update_interval == 0:
         data_generator.update_target_model(model)
 
 # final test
 logging.info("Testing by %d episodes...", env.case_size['test'])
+video_tag = "test_vi"
 policy.set_env(env)
 torch.save(model.state_dict(), last_rl_weight_file)
 if args.neptune:
     run["model/best_val"].upload(last_rl_weight_file)
-if not args.no_val: # load model from validation
+if not args.no_val:  # load model from validation
     logging.info("Load best RL model")
     robot.policy.model.load_state_dict(torch.load(rl_weight_file))  # load best model
-cumulative_rewards, success_rate, collision_rate, timeout_rate = explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode)
-video_tag="test_vi"
-explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
+
+if args.use_dataset:
+    data_generator.raw_memory = test_raw_memory
+    cumulative_rewards, success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explore_in_mix(
+        env.case_size['test'],
+        max_human=max_human,
+        random_robot=False,
+        add_sim=False,
+        random_epi=False,
+        phase='test',
+        # render_path=args.output_dir,
+    )
+    explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
+else:
+    cumulative_rewards, success_rate, collision_rate, timeout_rate = explorer.run_k_episodes(env.case_size['test'],
+                                                                                             'test',
+                                                                                             episode=episode)
+    explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
+
 if args.neptune:
     run["test/success_rate"].log(success_rate)  # log to neptune
     run["test/collision_rate"].log(collision_rate)  # log to neptune
     run["test/timeout_rate"].log(timeout_rate)  # log to neptune
     Resize_GIF(os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
-    run[video_tag+"/"+video_tag + "_ep" + str(episode) + ".gif"].upload(
-                os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))  # upload to neptune
+    run[video_tag + "/" + video_tag + "_ep" + str(episode) + ".gif"].upload(
+        os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))  # upload to neptune
     run.stop()
