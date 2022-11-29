@@ -167,7 +167,8 @@ params = {"output_dir": args.output_dir, "model_sim_lr": model_sim_lr, "train_wo
           "train_episodes": train_episodes, "target_update_interval": target_update_interval,
           "device": args.device, "world_model": args.world_model, "epsilon_start": epsilon_start,
           "epsilon_end": epsilon_end, "epsilon_decay": epsilon_decay, "num_epi_in_count": num_epi_in_count,
-          "target_average_success": target_average_success}
+          "target_average_success": target_average_success, "train_dataset": os.path.basename(train_datapath),
+          "val_dataset": os.path.basename(val_datapath), "test_dataset": os.path.basename(test_datapath)}
 
 # configure trainer and explorer
 memory = ReplayMemory(capacity)
