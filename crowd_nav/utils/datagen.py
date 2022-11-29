@@ -263,10 +263,14 @@ class DataGen(object):
             possible_case = [i for i in range(len(distances)) if distances[i] > avr_dis]
             min_dis = 0
             while min_dis < self.robot.radius*2: # check if robot collide with human at init state
+                if len(possible_case) == 0:# cant find possible init position
+                    return [], RobotInfo(None, None, None, None)
                 set_robot = random.choice(possible_case)
                 init_dis = [np.linalg.norm([start_end[set_robot][0] - h.px, start_end[set_robot][1] - h.py]) for h in
                             obs[0]]
                 min_dis = min(init_dis)
+                min_id = np.argmin(init_dis)
+                possible_case.pop(min_id)
 
         # set start and goal position for robot
         robot_info = RobotInfo(start_end[set_robot][0], start_end[set_robot][1], start_end[set_robot][2],
@@ -317,10 +321,13 @@ class DataGen(object):
         too_close = 0
         min_dist = []
         self.policy.set_phase(phase)
-        for c_sample in range(num_sample):
+        c_sample = 0
+        while c_sample < num_sample:
             # get real experience
             raw_states, robot_info = self.get_real_state(random_epi=random_epi, max_human=max_human,
                                                          random_robot=random_robot)
+            if raw_states == []:
+                continue
             if len(raw_states) <= min_end:
                 continue
             length = len(raw_states)
@@ -389,6 +396,9 @@ class DataGen(object):
                 self.env.render("video", os.path.join(render_path, str(c_sample) + ".gif"))
             cumulative_rewards.append(sum([pow(self.gamma, t * self.robot.time_step * self.robot.v_pref)
                                            * reward for t, reward in enumerate(rewards)]))
+            logging.info("Explore %s / %s" % (c_sample, num_sample))
+            c_sample += 1
+
         success_rate = reach_goal / num_sample
         collision_rate = collision / num_sample
         avg_nav_time = sum(success_times) / len(success_times) if success_times else self.env.time_limit
