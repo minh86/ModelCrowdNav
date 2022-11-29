@@ -412,7 +412,6 @@ class DataGen(object):
                 self.env.render("video", os.path.join(render_path, str(c_sample) + ".gif"))
             cumulative_rewards.append(sum([pow(self.gamma, t * self.robot.time_step * self.robot.v_pref)
                                            * reward for t, reward in enumerate(rewards)]))
-            logging.info("Explore %s / %s" % (c_sample, num_sample))
             c_sample += 1
 
         success_rate = reach_goal / num_sample
