@@ -150,6 +150,7 @@ api_token = train_config.get('neptune', 'api_token')
 neptune_project = train_config.get('neptune', 'neptune_project')
 num_epi_in_count = train_config.getint('train_sim', 'num_epi_in_count')
 target_average_success = train_config.getfloat('train_sim', 'target_average_success')
+view_distance = train_config.getint('train_sim', 'view_distance')
 
 # dataset config
 train_datapath = train_config.get('dataset', 'train_datapath')
@@ -171,7 +172,8 @@ params = {"output_dir": args.output_dir, "model_sim_lr": model_sim_lr, "train_wo
           "device": args.device, "world_model": args.world_model, "epsilon_start": epsilon_start,
           "epsilon_end": epsilon_end, "epsilon_decay": epsilon_decay, "num_epi_in_count": num_epi_in_count,
           "target_average_success": target_average_success, "train_dataset": os.path.basename(train_datapath),
-          "val_dataset": os.path.basename(val_datapath), "test_dataset": os.path.basename(test_datapath)}
+          "val_dataset": os.path.basename(val_datapath), "test_dataset": os.path.basename(test_datapath),
+          "view_distance": view_distance}
 
 # configure trainer and explorer
 memory = ReplayMemory(capacity)
@@ -246,10 +248,9 @@ else:  # -----------  Using trajnet++ dataset  ------------
     data_generator.raw_memory = train_raw_memory
 
     # load data for validation and testing
-    val_raw_memory, _ = GetRealData(dataset_file=val_datapath, limit=env.case_size['val'], stride=stride,
+    val_raw_memory, _ = GetRealData(dataset_file=val_datapath, limit=env.case_size['val'], start=100, stride=stride,
                                     windows_size=windows_size)
-    test_raw_memory, _ = GetRealData(dataset_file=test_datapath, limit=env.case_size['test'], stride=stride,
-                                     windows_size=windows_size)
+    test_raw_memory, _ = GetRealData(dataset_file=test_datapath,  stride=stride, windows_size=windows_size)
 
 # ============  training world model  ===============
 logging.info("Training world model...")
@@ -280,8 +281,9 @@ _, success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_exp
                                                                                             # random_robot=False,
                                                                                             add_sim=(not args.real_only),
                                                                                             # random_epi=False,
-                                                                                            render_path=args.output_dir,
+                                                                                            # render_path=args.output_dir,
                                                                                             # stay=True,
+                                                                                            view_distance=view_distance,
                                                                                             )
 video_tag = "il_vi"
 explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + ".gif"))
@@ -333,7 +335,8 @@ for episode in tqdm(range(train_episodes)):
         data_generator.raw_memory = train_raw_memory
     _, success, collision, timeout = data_generator.gen_data_from_explore_in_mix(sample_episodes_in_sim,
                                                                                  add_sim=(not args.real_only),
-                                                                                 max_human=max_human, phase='train')
+                                                                                 max_human=max_human, phase='train',
+                                                                                 view_distance=view_distance,)
     mem_success.push(success);
     mem_collision.push(collision);
     mem_timeout.push(timeout)
@@ -368,13 +371,14 @@ for episode in tqdm(range(train_episodes)):
         if args.use_dataset:
             data_generator.raw_memory = val_raw_memory
             cumulative_rewards, success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explore_in_mix(
-                env.case_size['val'],
+                env.case_size['val'], # val size for crowds_students001.ndjson
                 # max_human=max_human,
                 random_robot=False,
                 add_sim=False,
                 random_epi=False,
                 phase='val',
                 # render_path=args.output_dir,
+                view_distance=view_distance,
             )
             explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
         else:
@@ -416,13 +420,14 @@ if not args.no_val:  # load model from validation
 if args.use_dataset:
     data_generator.raw_memory = test_raw_memory
     cumulative_rewards, success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explore_in_mix(
-        env.case_size['test'],
+        env.case_size['test'], # test size for crowds_students003.ndjson
         # max_human=max_human,
         random_robot=False,
         add_sim=False,
         random_epi=False,
         phase='test',
         # render_path=args.output_dir,
+        view_distance=view_distance,
     )
     explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
 else:
