@@ -49,11 +49,11 @@ def GetRealData(dataset_file, limit=0, capacity=10000, holonomic=True, stride=-1
     reader = Reader(dataset_file, scene_type='both')
     reader.joinScene(stride, windows_size)  # Join multiple scenes into one
     scenes = reader.scenes(limit=limit)
-    logging.info("Loaded %s cases in %s "%(len(reader.scenes_by_id),os.path.basename(dataset_file)))
-
     raw_memory = ReplayMemory(capacity)
     rawob = ReplayMemory(capacity)
+    count=0
     for scene_id, fps, pri_human, rows, paths in scenes:
+        count+=1
         start = reader.scenes_by_id[scene_id].start
         end = reader.scenes_by_id[scene_id].end
         frames = range(start, end + 1)
@@ -76,6 +76,8 @@ def GetRealData(dataset_file, limit=0, capacity=10000, holonomic=True, stride=-1
                 next_action = [s[2:] for s in next_s]
                 next_action = next_action[:len(current_s)]
                 rawob.push((torch.Tensor(current_s), torch.Tensor(next_action)))
+
+    logging.info("Loaded %s cases in %s " % (count, os.path.basename(dataset_file)))
     return raw_memory, rawob
 
 
