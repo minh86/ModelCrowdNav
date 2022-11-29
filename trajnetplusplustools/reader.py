@@ -91,7 +91,7 @@ class Reader(object):
 
         self.scenes_by_id = joined_scene
 
-    def scenes(self, randomize=False, limit=0, ids=None, sample=None):
+    def scenes(self, randomize=False, limit=0, ids=None, sample=None, start=0):
         scene_ids = self.scenes_by_id.keys()
         if ids is not None:
             scene_ids = ids
@@ -99,7 +99,7 @@ class Reader(object):
             scene_ids = list(scene_ids)
             random.shuffle(scene_ids)
         if limit:
-            scene_ids = itertools.islice(scene_ids, limit)
+            scene_ids = itertools.islice(scene_ids, start, start+limit)
         if sample is not None:
             scene_ids = random.sample(scene_ids, int(len(scene_ids) * sample))
         for scene_id in scene_ids:

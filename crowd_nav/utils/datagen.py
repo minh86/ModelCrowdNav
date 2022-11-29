@@ -263,7 +263,7 @@ class DataGen(object):
             possible_case = [i for i in range(len(distances)) if (self.env.time_limit * self.robot.v_pref)
                              > distances[i] > avr_dis]
             min_dis = 0
-            while min_dis < self.robot.radius*2: # check if robot collide with human at init state
+            while min_dis < self.robot.radius*4: # check if robot collide with human at init state
                 if len(possible_case) == 0:# cant find possible init position
                     return [], RobotInfo(None, None, None, None)
                 set_robot = possible_case.pop(random.randrange(len(possible_case)))
@@ -301,9 +301,23 @@ class DataGen(object):
 
         return raw_states
 
+    # keep human state in range of view_distance only
+    def CorrectView(self, joined_state, view_distance):
+        selfState, humanState = joined_state.self_state, joined_state.human_states
+        rpx, rpy = selfState.px, selfState.py
+        distance = [np.linalg.norm([rpx - h.px, rpy - h.py]) for h in humanState]
+        closest = np.argmin(distance)
+        valid_human = [i for i in range(len(distance)) if distance[i] <= view_distance]
+        if len(valid_human) == 0: # pad with the closest human if no one in view range
+            valid_human = [closest]
+        humanState = [humanState[i] for i in valid_human]
+        joined_state = JointState(selfState, humanState)
+        return joined_state
+
     # gen data by explore in mix reality
     def gen_data_from_explore_in_mix(self, num_sample, phase="train", min_end=1, max_human=-1, imitation_learning=False,
-                                     add_sim=True, stay=False, random_epi=True, random_robot=True, render_path=None):
+                                     add_sim=True, stay=False, random_epi=True, random_robot=True, render_path=None,
+                                     view_distance=-1):
         '''
         set_robot = 0: doesn't used; n (positive) replace human n-th, same direction; -n human n-th reverse direction
         render_path: render every episode (for debug only)
@@ -346,6 +360,8 @@ class DataGen(object):
             info = None
             while not done:
                 if not stay:
+                    if view_distance>0:
+                        joined_state = self.CorrectView(joined_state, view_distance)
                     action = self.policy.predict(joined_state)
                 else:  # make robot stay for debug
                     holonomic = True if self.robot.policy.kinematics == 'holonomic' else False

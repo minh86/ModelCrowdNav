@@ -44,11 +44,11 @@ def PositiveRate(memory):
     return pos / len(memory.memory)
 
 
-def GetRealData(dataset_file, limit=0, capacity=10000, holonomic=True, stride=-1, windows_size=-1, padding_last="moving"):
+def GetRealData(dataset_file, limit=0, start=0, capacity=10000, stride=-1, windows_size=-1, padding_last="moving"):
     # dataset_plots(dataset_file)
     reader = Reader(dataset_file, scene_type='both')
     reader.joinScene(stride, windows_size)  # Join multiple scenes into one
-    scenes = reader.scenes(limit=limit)
+    scenes = reader.scenes(limit=limit, start=start)
     raw_memory = ReplayMemory(capacity)
     rawob = ReplayMemory(capacity)
     count=0
