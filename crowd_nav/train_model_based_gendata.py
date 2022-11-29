@@ -55,6 +55,7 @@ parser.add_argument('--gradual', default=False, action='store_true')  # graduall
 parser.add_argument('--reinit_world', default=False, action='store_true')  # gradually changing human num
 parser.add_argument('--human_num', type=int, default=5)
 parser.add_argument('--use_dataset', default=False, action='store_true')  # using dataset instead of simulator
+parser.add_argument('--real_only', default=False, action='store_true')  # use real only data
 
 args = parser.parse_args()
 
@@ -275,7 +276,7 @@ _, success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_exp
                                                                                             max_human=max_human,
                                                                                             imitation_learning=True,
                                                                                             # random_robot=False,
-                                                                                            # add_sim=False,
+                                                                                            add_sim=(not args.real_only),
                                                                                             # random_epi=False,
                                                                                             # render_path=args.output_dir,
                                                                                             # stay=True,
@@ -329,6 +330,7 @@ for episode in tqdm(range(train_episodes)):
     if args.use_dataset:
         data_generator.raw_memory = train_raw_memory
     _, success, collision, timeout = data_generator.gen_data_from_explore_in_mix(sample_episodes_in_sim,
+                                                                                 add_sim=(not args.real_only),
                                                                                  max_human=max_human, phase='train')
     mem_success.push(success);
     mem_collision.push(collision);
@@ -365,7 +367,7 @@ for episode in tqdm(range(train_episodes)):
             data_generator.raw_memory = val_raw_memory
             cumulative_rewards, success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explore_in_mix(
                 env.case_size['val'],
-                max_human=max_human,
+                # max_human=max_human,
                 random_robot=False,
                 add_sim=False,
                 random_epi=False,
@@ -413,7 +415,7 @@ if args.use_dataset:
     data_generator.raw_memory = test_raw_memory
     cumulative_rewards, success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explore_in_mix(
         env.case_size['test'],
-        max_human=max_human,
+        # max_human=max_human,
         random_robot=False,
         add_sim=False,
         random_epi=False,
