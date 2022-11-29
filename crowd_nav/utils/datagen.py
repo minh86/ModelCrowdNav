@@ -266,12 +266,11 @@ class DataGen(object):
             while min_dis < self.robot.radius*2: # check if robot collide with human at init state
                 if len(possible_case) == 0:# cant find possible init position
                     return [], RobotInfo(None, None, None, None)
-                set_robot = random.choice(possible_case)
+                set_robot = possible_case.pop(random.randrange(len(possible_case)))
                 init_state = obs[0][:set_robot]+obs[0][set_robot+1:]
                 init_dis = [np.linalg.norm([start_end[set_robot][0] - h.px, start_end[set_robot][1] - h.py]) for h in
                             init_state]
                 min_dis = min(init_dis)
-                possible_case.pop(set_robot)
 
         # set start and goal position for robot
         robot_info = RobotInfo(start_end[set_robot][0], start_end[set_robot][1], start_end[set_robot][2],
