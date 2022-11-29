@@ -280,7 +280,7 @@ _, success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_exp
                                                                                             # random_robot=False,
                                                                                             add_sim=(not args.real_only),
                                                                                             # random_epi=False,
-                                                                                            # render_path=args.output_dir,
+                                                                                            render_path=args.output_dir,
                                                                                             # stay=True,
                                                                                             )
 video_tag = "il_vi"

@@ -247,7 +247,7 @@ class DataGen(object):
             obs.append(ob)
             if done:
                 break
-        return obs, start_ends
+        return obs, start_ends[:max_human]
 
     # create JointState from last real episode
     def get_real_state(self, random_epi=False, max_human=-1, random_robot=True):
@@ -260,7 +260,8 @@ class DataGen(object):
         else:
             # random replace human with robot
             avr_dis = np.average(distances)
-            possible_case = [i for i in range(len(distances)) if distances[i] > avr_dis]
+            possible_case = [i for i in range(len(distances)) if (self.env.time_limit * self.robot.v_pref)
+                             > distances[i] > avr_dis]
             min_dis = 0
             while min_dis < self.robot.radius*2: # check if robot collide with human at init state
                 if len(possible_case) == 0:# cant find possible init position
@@ -270,8 +271,7 @@ class DataGen(object):
                 init_dis = [np.linalg.norm([start_end[set_robot][0] - h.px, start_end[set_robot][1] - h.py]) for h in
                             init_state]
                 min_dis = min(init_dis)
-                min_id = np.argmin(init_dis)
-                possible_case.pop(min_id)
+                possible_case.pop(set_robot)
 
         # set start and goal position for robot
         robot_info = RobotInfo(start_end[set_robot][0], start_end[set_robot][1], start_end[set_robot][2],
