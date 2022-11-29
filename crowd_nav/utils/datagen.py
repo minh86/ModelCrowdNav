@@ -266,8 +266,7 @@ class DataGen(object):
                 if len(possible_case) == 0:# cant find possible init position
                     return [], RobotInfo(None, None, None, None)
                 set_robot = random.choice(possible_case)
-                rid = set_robot-1
-                init_state = obs[0][:rid]+obs[0][rid+1:]
+                init_state = obs[0][:set_robot]+obs[0][set_robot+1:]
                 init_dis = [np.linalg.norm([start_end[set_robot][0] - h.px, start_end[set_robot][1] - h.py]) for h in
                             init_state]
                 min_dis = min(init_dis)
@@ -279,7 +278,7 @@ class DataGen(object):
                                start_end[set_robot][3])
 
         # remove human traj which is replaced by robot
-        h_id = abs(set_robot) - 1
+        h_id = set_robot
         obs = [ob[:h_id] + ob[h_id + 1:] if len(ob) > h_id else ob for ob in obs]
 
         for ob in obs:
