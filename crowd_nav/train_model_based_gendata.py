@@ -56,6 +56,7 @@ parser.add_argument('--reinit_world', default=False, action='store_true')  # gra
 parser.add_argument('--human_num', type=int, default=5)
 parser.add_argument('--use_dataset', default=False, action='store_true')  # using dataset instead of simulator
 parser.add_argument('--real_only', default=False, action='store_true')  # use real only data
+parser.add_argument('--kinematics', type=str, default='holonomic')
 
 args = parser.parse_args()
 
@@ -108,6 +109,7 @@ policy_config = configparser.RawConfigParser()
 policy_config.read(args.policy_config)
 policy.configure(policy_config)
 policy.set_device(device)
+policy.kinematics = args.kinematics
 
 # configure environment
 env_config = configparser.RawConfigParser()

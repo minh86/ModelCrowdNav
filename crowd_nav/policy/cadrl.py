@@ -63,7 +63,7 @@ class CADRL(Policy):
 
     def set_common_parameters(self, config):
         self.gamma = config.getfloat('rl', 'gamma')
-        self.kinematics = config.get('action_space', 'kinematics')
+        # self.kinematics = config.get('action_space', 'kinematics')
         self.sampling = config.get('action_space', 'sampling')
         self.speed_samples = config.getint('action_space', 'speed_samples')
         self.rotation_samples = config.getint('action_space', 'rotation_samples')
