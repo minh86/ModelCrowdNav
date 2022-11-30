@@ -151,6 +151,7 @@ neptune_project = train_config.get('neptune', 'neptune_project')
 num_epi_in_count = train_config.getint('train_sim', 'num_epi_in_count')
 target_average_success = train_config.getfloat('train_sim', 'target_average_success')
 view_distance = train_config.getint('train_sim', 'view_distance')
+view_human = train_config.getint('train_sim', 'view_human')
 
 # dataset config
 train_datapath = train_config.get('dataset', 'train_datapath')
@@ -240,7 +241,7 @@ else:  # -----------  Using trajnet++ dataset  ------------
     logging.info("Collect data from dataset (trajnet++)...")
     # load data for training world model (padding stay)
     _, rawob = GetRealData(dataset_file=train_datapath, limit=100, stride=stride,
-                                          windows_size=windows_size, padding_last="stay")
+                                          windows_size=windows_size, padding_last="stay", padding_first="none")
     trainer_sim.memory = rawob
     # load data for training value network (padding moving)
     train_raw_memory, _ = GetRealData(dataset_file=train_datapath, limit=100, stride=stride,
@@ -284,6 +285,7 @@ _, success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_exp
                                                                                             # render_path=args.output_dir,
                                                                                             # stay=True,
                                                                                             view_distance=view_distance,
+                                                                                            view_human=view_human,
                                                                                             )
 video_tag = "il_vi"
 explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + ".gif"))
@@ -336,7 +338,8 @@ for episode in tqdm(range(train_episodes)):
     _, success, collision, timeout = data_generator.gen_data_from_explore_in_mix(sample_episodes_in_sim,
                                                                                  add_sim=(not args.real_only),
                                                                                  max_human=max_human, phase='train',
-                                                                                 view_distance=view_distance,)
+                                                                                 view_distance=view_distance,
+                                                                                 view_human=view_human,)
     mem_success.push(success);
     mem_collision.push(collision);
     mem_timeout.push(timeout)
@@ -379,6 +382,7 @@ for episode in tqdm(range(train_episodes)):
                 phase='val',
                 # render_path=args.output_dir,
                 view_distance=view_distance,
+                view_human=view_human,
             )
             explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
         else:
@@ -428,6 +432,7 @@ if args.use_dataset:
         phase='test',
         # render_path=args.output_dir,
         view_distance=view_distance,
+        view_human=view_human,
     )
     explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
 else:

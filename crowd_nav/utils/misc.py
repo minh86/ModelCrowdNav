@@ -44,7 +44,8 @@ def PositiveRate(memory):
     return pos / len(memory.memory)
 
 
-def GetRealData(dataset_file, limit=0, start=0, capacity=10000, stride=-1, windows_size=-1, padding_last="moving"):
+def GetRealData(dataset_file, limit=0, start=0, capacity=10000, stride=-1, windows_size=-1, padding_last="moving",
+                padding_first="stay"):
     # dataset_plots(dataset_file)
     reader = Reader(dataset_file, scene_type='both')
     reader.joinScene(stride, windows_size)  # Join multiple scenes into one
@@ -61,7 +62,7 @@ def GetRealData(dataset_file, limit=0, start=0, capacity=10000, stride=-1, windo
                      for frame in frames
                      for r in reader.tracks_by_frame.get(frame, [])]
         frame_ids = sorted([*{*frame_ids}])
-        obs = Convert_to_ObserState(fps, paths, frame_ids, padding_last=padding_last)
+        obs = Convert_to_ObserState(fps, paths, frame_ids, padding_last=padding_last, padding_first=padding_first)
         start_ends = [[p[0].x, p[0].y, p[-1].x, p[-1].y] for p in paths] # possible scenarios for robot
         for i, ob in enumerate(obs):
             done = False
@@ -81,19 +82,23 @@ def GetRealData(dataset_file, limit=0, start=0, capacity=10000, stride=-1, windo
     return raw_memory, rawob
 
 
-def Convert_to_ObserState(fps, paths, frame_ids, radius=0.3, padding_last="stay"):
+def Convert_to_ObserState(fps, paths, frame_ids, radius=0.3, padding_last="stay", padding_first="none"):
     obs = []
     for c_frame in frame_ids:
-        obs.append(GetState(paths, c_frame, frame_ids, radius=radius, fps=fps, padding_last=padding_last))
+        obs.append(GetState(paths, c_frame, frame_ids, radius=radius, fps=fps, padding_last=padding_last, padding_first=padding_first))
     # tmp =[ob[5] if 5< len(ob) else [] for ob in obs]
     return obs
 
 
-def GetState(paths, c_frame, frame_ids, radius=0.3, fps=2.5, padding_last="stay"):
+def GetState(paths, c_frame, frame_ids, radius=0.3, fps=2.5, padding_last="stay", padding_first="none"):
     state = []
     for p in paths:
         p_i = GetIndex(c_frame, p, frame_ids)
-        if p_i == -1: continue
+        if p_i == -1: # padding first
+            if padding_first == "none":
+                continue
+            if padding_first == "stay":
+                p_i = 0
         vx, vy = GetVel(p_i, p, fps)
         if p_i >= len(p):
             if padding_last == "stay":
