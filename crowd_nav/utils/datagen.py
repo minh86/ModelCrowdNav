@@ -9,6 +9,8 @@ from collections import namedtuple
 import numpy as np
 from numpy.linalg import norm
 import torch
+from tqdm import tqdm
+
 from crowd_sim.envs.utils.info import *
 from crowd_sim.envs.utils.state import JointState, FullState
 from crowd_sim.envs.utils.action import ActionRot, ActionXY
@@ -351,6 +353,7 @@ class DataGen(object):
         min_dist = []
         self.policy.set_phase(phase)
         c_sample = 0
+        pbar = tqdm(total=num_sample)
         while c_sample < num_sample:
             # get real experience
             raw_states, robot_info = self.get_real_state(random_epi=random_epi, max_human=max_human,
@@ -373,6 +376,7 @@ class DataGen(object):
             i = 0
             joined_state = JointState(self.env.robot.get_full_state(), raw_states[0].human_states)
             info = None
+            pbar.update(1)
             while not done:
                 if not stay:
                     if view_distance >0 :
@@ -431,6 +435,7 @@ class DataGen(object):
                                            * reward for t, reward in enumerate(rewards)]))
             c_sample += 1
 
+        pbar.close()
         success_rate = reach_goal / num_sample
         collision_rate = collision / num_sample
         avg_nav_time = sum(success_times) / len(success_times) if success_times else self.env.time_limit
