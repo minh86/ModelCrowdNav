@@ -98,7 +98,7 @@ class Reader(object):
         if randomize:
             scene_ids = list(scene_ids)
             random.shuffle(scene_ids)
-        if limit:
+        if limit > 0:
             scene_ids = itertools.islice(scene_ids, start, start+limit)
         if sample is not None:
             scene_ids = random.sample(scene_ids, int(len(scene_ids) * sample))
