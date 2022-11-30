@@ -353,7 +353,9 @@ class DataGen(object):
         min_dist = []
         self.policy.set_phase(phase)
         c_sample = 0
-        pbar = tqdm(total=num_sample)
+        pbar = None
+        if imitation_learning:
+            pbar = tqdm(total=num_sample)
         while c_sample < num_sample:
             # get real experience
             raw_states, robot_info = self.get_real_state(random_epi=random_epi, max_human=max_human,
@@ -376,7 +378,7 @@ class DataGen(object):
             i = 0
             joined_state = JointState(self.env.robot.get_full_state(), raw_states[0].human_states)
             info = None
-            pbar.update(1)
+            if pbar is not None:  pbar.update(1)
             while not done:
                 if not stay:
                     if view_distance >0 :
@@ -434,8 +436,8 @@ class DataGen(object):
             cumulative_rewards.append(sum([pow(self.gamma, t * self.robot.time_step * self.robot.v_pref)
                                            * reward for t, reward in enumerate(rewards)]))
             c_sample += 1
-
-        pbar.close()
+        if pbar is not None:
+            pbar.close()
         success_rate = reach_goal / num_sample
         collision_rate = collision / num_sample
         avg_nav_time = sum(success_times) / len(success_times) if success_times else self.env.time_limit

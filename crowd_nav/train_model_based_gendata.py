@@ -57,6 +57,7 @@ parser.add_argument('--human_num', type=int, default=5)
 parser.add_argument('--use_dataset', default=False, action='store_true')  # using dataset instead of simulator
 parser.add_argument('--real_only', default=False, action='store_true')  # use real only data
 parser.add_argument('--kinematics', type=str, default='holonomic')
+parser.add_argument('--train_size', type=int, default=100)
 
 args = parser.parse_args()
 
@@ -240,17 +241,18 @@ if not args.use_dataset:
 else:  # -----------  Using trajnet++ dataset  ------------
     logging.info("Collect data from dataset (trajnet++)...")
     # load data for training world model (padding stay)
-    _, rawob = GetRealData(dataset_file=train_datapath, limit=100, stride=stride,
+    _, rawob = GetRealData(dataset_file=train_datapath, limit=args.train_size, stride=stride,
                                           windows_size=windows_size, padding_last="stay", padding_first="none")
     trainer_sim.memory = rawob
     # load data for training value network (padding moving)
-    train_raw_memory, _ = GetRealData(dataset_file=train_datapath, limit=100, stride=stride,
+    train_raw_memory, _ = GetRealData(dataset_file=train_datapath, limit=args.train_size, stride=stride,
                                       windows_size=windows_size)
     data_generator.raw_memory = train_raw_memory
 
     # load data for validation and testing
-    val_raw_memory, _ = GetRealData(dataset_file=val_datapath, limit=env.case_size['val'], start=100, stride=stride,
-                                    windows_size=windows_size)
+    if not args.no_val:
+        val_raw_memory, _ = GetRealData(dataset_file=val_datapath, limit=env.case_size['val'], start=args.train_size,
+                                        stride=stride, windows_size=windows_size)
     test_raw_memory, _ = GetRealData(dataset_file=test_datapath,  stride=stride, windows_size=windows_size)
 
 # ============  training world model  ===============
