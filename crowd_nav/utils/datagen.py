@@ -257,13 +257,24 @@ class DataGen(object):
         obs, start_end = self.pick_real_episode(random_epi=random_epi, max_human=max_human)
         raw_states = []
         distances = [np.linalg.norm([p[2] - p[0], p[3] - p[1]]) for p in start_end]
-        if random_robot is False:  # replace robot by human with the longest path
-            set_robot = np.argmax(distances)
+        avr_dis = np.average(distances)
+        possible_case = [i for i in range(len(distances)) if (self.env.time_limit * self.robot.v_pref)
+                         > distances[i] > avr_dis]
+        if random_robot is False:  # replace robot by human with the possible longest path
+            i_poss = list(enumerate(distances))
+            sorted_poss = sorted(i_poss, key=lambda x: x[1])[-len(possible_case):][::-1]
+            possible_case = [case[0] for case in sorted_poss]
+            min_dis = 0
+            while min_dis < self.robot.radius * 4:  # check if robot collide with human at init state
+                if len(possible_case) == 0:  # cant find possible init position
+                    return [], RobotInfo(None, None, None, None)
+                set_robot = possible_case.pop(random.randrange(len(possible_case)))
+                init_state = obs[0][:set_robot] + obs[0][set_robot + 1:]
+                init_dis = [np.linalg.norm([start_end[set_robot][0] - h.px, start_end[set_robot][1] - h.py])
+                            for h in init_state]
+                min_dis = min(init_dis)
         else:
             # random replace human with robot
-            avr_dis = np.average(distances)
-            possible_case = [i for i in range(len(distances)) if (self.env.time_limit * self.robot.v_pref)
-                             > distances[i] > avr_dis]
             min_dis = 0
             while min_dis < self.robot.radius*4: # check if robot collide with human at init state
                 if len(possible_case) == 0:# cant find possible init position
@@ -354,7 +365,7 @@ class DataGen(object):
         self.policy.set_phase(phase)
         c_sample = 0
         pbar = None
-        if imitation_learning:
+        if imitation_learning or phase == "val" or phase == "test":
             pbar = tqdm(total=num_sample)
         while c_sample < num_sample:
             # get real experience
