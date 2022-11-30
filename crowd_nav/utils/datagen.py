@@ -345,7 +345,7 @@ class DataGen(object):
     # gen data by explore in mix reality
     def gen_data_from_explore_in_mix(self, num_sample, phase="train", min_end=1, max_human=-1, imitation_learning=False,
                                      add_sim=True, stay=False, random_epi=True, random_robot=True, render_path=None,
-                                     view_distance=-1, view_human=-1):
+                                     view_distance=-1, view_human=-1, returnRate=False):
         '''
         set_robot = 0: doesn't used; n (positive) replace human n-th, same direction; -n human n-th reverse direction
         render_path: render every episode (for debug only)
@@ -451,6 +451,7 @@ class DataGen(object):
             pbar.close()
         success_rate = reach_goal / num_sample
         collision_rate = collision / num_sample
+        timeout_rate = (num_sample - reach_goal - collision) / num_sample
         avg_nav_time = sum(success_times) / len(success_times) if success_times else self.env.time_limit
         logging.info('Exp in mix has success rate: {:.2f}, collision rate: {:.2f}, nav time: {:.2f}, total reward: {:.4f}'
                      .format(success_rate, collision_rate, avg_nav_time, np.average(cumulative_rewards)))
@@ -458,7 +459,8 @@ class DataGen(object):
             num_step = sum(success_times + collision_times + timeout_times) / self.robot.time_step
             logging.info('Frequency of being in danger: %.2f and average min separate distance in danger: %.2f',
                          too_close / num_step, np.average(min_dist))
-
+        if returnRate:
+            return np.average(cumulative_rewards), success_rate, collision_rate, timeout_rate
         return np.average(cumulative_rewards), reach_goal, collision, (num_sample - reach_goal - collision)
 
     def update_memory(self, states, rewards, imitation_learning=False):

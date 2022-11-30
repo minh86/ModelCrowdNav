@@ -386,6 +386,7 @@ for episode in tqdm(range(train_episodes)):
                 # render_path=args.output_dir,
                 view_distance=view_distance,
                 view_human=view_human,
+                returnRate=True,
             )
             explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
         else:
@@ -437,6 +438,7 @@ if args.use_dataset:
         # render_path=args.output_dir,
         view_distance=view_distance,
         view_human=view_human,
+        returnRate=True,
     )
     explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
 else:
