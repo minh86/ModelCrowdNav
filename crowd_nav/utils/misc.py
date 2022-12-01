@@ -44,11 +44,18 @@ def PositiveRate(memory):
     return pos / len(memory.memory)
 
 
-def GetRealData(dataset_file, limit=0, start=0, capacity=10000, stride=-1, windows_size=-1, padding_last="moving",
-                padding_first="stay"):
+def GetRealData(dataset_file, phase="train", capacity=10000, stride=-1, windows_size=-1, padding_last="stay",
+                padding_first="none"):
     # dataset_plots(dataset_file)
     reader = Reader(dataset_file, scene_type='both')
     reader.joinScene(stride, windows_size)  # Join multiple scenes into one
+    limit =-1;start = 0
+    if phase=="train":
+        limit = int(0.8 * len(reader.scenes_by_id))
+    if phase=="val":
+        start = int(0.8 * len(reader.scenes_by_id))
+        limit = len(reader.scenes_by_id) - start
+
     scenes = reader.scenes(limit=limit, start=start)
     raw_memory = ReplayMemory(capacity)
     rawob = ReplayMemory(capacity)
@@ -78,7 +85,7 @@ def GetRealData(dataset_file, limit=0, start=0, capacity=10000, stride=-1, windo
                 next_action = next_action[:len(current_s)]
                 rawob.push((torch.Tensor(current_s), torch.Tensor(next_action)))
 
-    logging.info("Loaded %s cases in %s " % (count, os.path.basename(dataset_file)))
+    logging.info("Loaded %s cases in %s for phase: %s " % (count, os.path.basename(dataset_file), phase))
     return raw_memory, rawob
 
 

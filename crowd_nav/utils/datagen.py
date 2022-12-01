@@ -254,6 +254,7 @@ class DataGen(object):
     # create JointState from last real episode
     def get_real_state(self, random_epi=False, max_human=-1, random_robot=True):
         RobotInfo = namedtuple('RobotInfo', ['px', 'py', 'gx', 'gy'])
+        px, py, gx, gy = None, None, None, None
         obs, start_end = self.pick_real_episode(random_epi=random_epi, max_human=max_human)
         raw_states = []
         distances = [np.linalg.norm([p[2] - p[0], p[3] - p[1]]) for p in start_end]
@@ -270,8 +271,14 @@ class DataGen(object):
                     return [], RobotInfo(None, None, None, None)
                 set_robot = possible_case.pop(random.randrange(len(possible_case)))
                 init_state = obs[0][:set_robot] + obs[0][set_robot + 1:]
-                init_dis = [np.linalg.norm([start_end[set_robot][0] - h.px, start_end[set_robot][1] - h.py])
-                            for h in init_state]
+                # pad start, end position
+                [px, py, gx, gy] = [start_end[set_robot][i] for i in range(4)]
+                moving_vector = [gx - px, gy - py]
+                padding_dis = 2
+                pad_x = padding_dis * math.sin(moving_vector[0] / np.linalg.norm(moving_vector))
+                pad_y = padding_dis * math.sin(moving_vector[1] / np.linalg.norm(moving_vector))
+                px, py, gx, gy = px - pad_x, py - pad_y, gx + pad_x, gy + pad_y
+                init_dis = [np.linalg.norm([px-h.px, py-h.py]) for h in init_state]
                 min_dis = min(init_dis)
         else:
             # random replace human with robot
@@ -281,13 +288,19 @@ class DataGen(object):
                     return [], RobotInfo(None, None, None, None)
                 set_robot = possible_case.pop(random.randrange(len(possible_case)))
                 init_state = obs[0][:set_robot]+obs[0][set_robot+1:]
-                init_dis = [np.linalg.norm([start_end[set_robot][0] - h.px, start_end[set_robot][1] - h.py]) for h in
-                            init_state]
+                # pad start, end position
+                [px, py, gx, gy] = [start_end[set_robot][i] for i in range(4)]
+                moving_vector = [gx-px, gy-py]
+                padding_dis = 2
+                pad_x = padding_dis*math.sin(moving_vector[0]/np.linalg.norm(moving_vector))
+                pad_y = padding_dis*math.sin(moving_vector[1]/np.linalg.norm(moving_vector))
+                px, py, gx, gy = px-pad_x, py-pad_y, gx+pad_x, gy+pad_y
+
+                init_dis = [np.linalg.norm([px - h.px, py - h.py]) for h in init_state]
                 min_dis = min(init_dis)
 
         # set start and goal position for robot
-        robot_info = RobotInfo(start_end[set_robot][0], start_end[set_robot][1], start_end[set_robot][2],
-                               start_end[set_robot][3])
+        robot_info = RobotInfo(px, py, gx, gy)
 
         # remove human traj which is replaced by robot
         h_id = set_robot
