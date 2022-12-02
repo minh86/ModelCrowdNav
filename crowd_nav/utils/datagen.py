@@ -417,6 +417,7 @@ class DataGen(object):
                 # replay real experience
                 if i + 1 < len(raw_states):
                     next_h_action = [h.getvel() for h in raw_states[i + 1].human_states][:self.env.human_num]
+
                     ob, reward, done, info = self.env.step(action, new_v=next_h_action)
                     # add more human when needed
                     n_state = raw_states[i + 1]
@@ -434,7 +435,7 @@ class DataGen(object):
                     if add_sim:
                         next_h_action = None
                     else:
-                        next_h_action = [[0, 0]] * len(human_states)
+                        next_h_action = [[0, 0]] * self.env.human_num
                     ob, reward, done, info = self.env.step(action, new_v=next_h_action)
 
                 states.append(self.transform(joined_state))
