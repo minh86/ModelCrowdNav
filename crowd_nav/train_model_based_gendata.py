@@ -414,6 +414,7 @@ for episode in tqdm(range(train_episodes)):
     # update target model
     if (episode + 1) % target_update_interval == 0:
         data_generator.update_target_model(model)
+        torch.save(model.state_dict(), last_rl_weight_file)
 
 # final test
 logging.info("Testing by %d episodes...", env.case_size['test'])
