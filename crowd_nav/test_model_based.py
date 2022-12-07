@@ -126,6 +126,7 @@ def main():
                 view_distance=view_distance,
                 view_human=view_human,
                 returnRate=True,
+                updateMemory=False,
             )
             explorer_sim.env.render("video", video_file)
         else:

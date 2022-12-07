@@ -358,7 +358,7 @@ class DataGen(object):
     # gen data by explore in mix reality
     def gen_data_from_explore_in_mix(self, num_sample, phase="train", min_end=1, max_human=-1, imitation_learning=False,
                                      add_sim=True, stay=False, random_epi=True, random_robot=True, render_path=None,
-                                     view_distance=-1, view_human=-1, returnRate=False):
+                                     view_distance=-1, view_human=-1, returnRate=False, updateMemory=True):
         '''
         set_robot = 0: doesn't used; n (positive) replace human n-th, same direction; -n human n-th reverse direction
         render_path: render every episode (for debug only)
@@ -447,7 +447,8 @@ class DataGen(object):
                     min_dist.append(info.min_dist)
 
             if isinstance(info, ReachGoal) or isinstance(info, Collision):
-                self.update_memory(states, rewards, imitation_learning=imitation_learning)
+                if updateMemory:
+                    self.update_memory(states, rewards, imitation_learning=imitation_learning)
             if isinstance(info, ReachGoal):
                 reach_goal += 1
                 success_times.append(self.env.global_time)
