@@ -97,7 +97,7 @@ def main():
         run["config/policy"].upload(args.policy_config)
         run["config/train"].upload(args.train_config)
     for w_file in weight_files:
-        if not os.path.exists(last_rl_weight_file):
+        if not os.path.exists(w_file):
             continue
         robot.policy.model.load_state_dict(torch.load(w_file, map_location=device))  # load best model
         f = os.path.basename(w_file).split('.')[0]
