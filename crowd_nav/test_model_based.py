@@ -8,14 +8,13 @@ import torch
 import gym
 import sys
 
-from crowd_nav.utils.datagen import DataGen
 
 sys.path.append('../')
 from crowd_sim.envs.utils.robot import Robot
 from crowd_nav.utils.explorer import Explorer
 from crowd_nav.policy.policy_factory import policy_factory
 from crowd_nav.utils.misc import *
-
+from crowd_nav.utils.datagen import DataGen
 
 def main():
     parser = argparse.ArgumentParser('Parse configuration file')
