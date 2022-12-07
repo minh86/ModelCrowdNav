@@ -39,9 +39,7 @@ def main():
 
     rl_weight_file = os.path.join(args.output_dir, 'rl_model.pth')
     last_rl_weight_file = os.path.join(args.output_dir, 'last_rl_model.pth')
-    weight_files = [rl_weight_file]
-    if os.path.exists(last_rl_weight_file):
-        weight_files.append(last_rl_weight_file)
+    weight_files = [rl_weight_file, last_rl_weight_file]
 
     # configure logging
     logging.basicConfig(level=logging.INFO, format='%(asctime)s, %(levelname)s: %(message)s',
@@ -99,6 +97,8 @@ def main():
         run["config/policy"].upload(args.policy_config)
         run["config/train"].upload(args.train_config)
     for w_file in weight_files:
+        if not os.path.exists(last_rl_weight_file):
+            continue
         robot.policy.model.load_state_dict(torch.load(w_file, map_location=device))  # load best model
         f = os.path.basename(w_file).split('.')[0]
         video_tag = "finaltest_"
