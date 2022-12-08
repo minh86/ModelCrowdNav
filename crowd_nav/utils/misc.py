@@ -56,9 +56,9 @@ def GetRealData(dataset_file, phase="train", capacity=10000, stride=-1, windows_
         if phase == "test":
             limit = total
     if phase == "train":
-        limit = int(0.8 * total)
+        limit = int(0.7 * total)
     if phase == "val":
-        start = int(0.8 * total)
+        start = int(0.7 * total)
         limit = total - start
 
     scenes = reader.scenes(limit=limit, start=start)
