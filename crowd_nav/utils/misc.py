@@ -53,8 +53,7 @@ def GetRealData(dataset_file, phase="train", capacity=10000, stride=-1, windows_
     if dataset_slice is not None:
         start = dataset_slice[0]
         total = dataset_slice[1]
-        if phase == "test":
-            limit = total
+        limit = total
     if phase == "train":
         limit = int(0.7 * total)
     if phase == "val":
