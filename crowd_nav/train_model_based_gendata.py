@@ -47,7 +47,7 @@ parser.add_argument('--dyna', default=False, action='store_true')
 parser.add_argument('--no_val', default=False, action='store_true')
 parser.add_argument('--use_linear_to_gen', default=False, action='store_true')
 parser.add_argument('--neptune', default=False, action='store_true')
-parser.add_argument('--world_model', type=str, default='mlp')
+parser.add_argument('--world_model', type=str, default='attention')
 parser.add_argument('--neptune_name', type=str, default='Untitled')
 parser.add_argument('--add_positive', default=False,
                     action='store_true')  # adding fake positive experience to combat timeout
