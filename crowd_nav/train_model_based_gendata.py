@@ -312,9 +312,9 @@ robot.set_policy(policy)
 # ==============   gen data by explorer in mix reality  ================
 logging.info("Training phase...")
 best_cumulative_rewards = float('-inf')
-mem_success = ReplayMemory(num_epi_in_count)
-mem_collision = ReplayMemory(num_epi_in_count)
-mem_timeout = ReplayMemory(num_epi_in_count)
+mem_success = ReplayMemory(num_epi_in_count, 0)
+mem_collision = ReplayMemory(num_epi_in_count, 0)
+mem_timeout = ReplayMemory(num_epi_in_count, 0)
 # logging.info("Load the best RL model")
 # robot.policy.model.load_state_dict(torch.load(rl_weight_file))  # load best model
 data_generator.update_target_model(robot.policy.model)

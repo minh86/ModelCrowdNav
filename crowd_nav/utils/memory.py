@@ -2,10 +2,13 @@ from torch.utils.data import Dataset
 import random
 
 class ReplayMemory(Dataset):
-    def __init__(self, capacity):
+    def __init__(self, capacity, init_value=None):
         self.capacity = capacity
         self.memory = list()
         self.position = 0
+        if init_value is not None:
+            for _ in range(capacity):
+                self.push(init_value)
 
     def push(self, item):
         # replace old experience with new experience
