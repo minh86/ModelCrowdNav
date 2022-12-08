@@ -57,6 +57,8 @@ parser.add_argument('--human_num', type=int, default=5)
 parser.add_argument('--use_dataset', default=False, action='store_true')  # using dataset instead of simulator
 parser.add_argument('--real_only', default=False, action='store_true')  # use real only data
 parser.add_argument('--kinematics', type=str, default='holonomic')
+parser.add_argument('--cutting_point', type=int, default=-1) # split point for train_val and test dataset
+
 
 args = parser.parse_args()
 
@@ -238,6 +240,11 @@ if not args.use_dataset:
     explorer.run_k_episodes(sample_episodes_in_real_before_train, 'train', update_memory=False, update_raw_ob=True,
                             stay=True)
 else:  # -----------  Using trajnet++ dataset  ------------
+    train_sl = None
+    test_sl = None
+    if args.cutting_point >0:
+        train_sl = [0, args.cutting_point]
+        test_sl = [args.cutting_point, env.case_size['test']]
     logging.info("Collect data from dataset (trajnet++)...")
     # load data for training value network (padding moving)
     phase = "train"
@@ -246,13 +253,14 @@ else:  # -----------  Using trajnet++ dataset  ------------
     else:
         # load data for validation and testing
         val_raw_memory, _ = GetRealData(dataset_file=val_datapath, phase="val",
-                                        stride=stride, windows_size=windows_size)
+                                        stride=stride, windows_size=windows_size, dataset_slice=train_sl)
     # load data for training world model (padding stay)
-    _, rawob = GetRealData(dataset_file=train_datapath, phase=phase, stride=stride,
-                           windows_size=windows_size)
-    train_raw_memory, _ = GetRealData(dataset_file=train_datapath, phase=phase, stride=stride,
-                                      windows_size=windows_size)
-    test_raw_memory, _ = GetRealData(dataset_file=test_datapath, phase="test", stride=stride, windows_size=windows_size)
+    # _, rawob = GetRealData(dataset_file=train_datapath, phase=phase, stride=stride,
+    #                        windows_size=windows_size,slide=train_sl)
+    train_raw_memory, rawob = GetRealData(dataset_file=train_datapath, phase=phase, stride=stride,
+                                      windows_size=windows_size, dataset_slice=train_sl)
+    test_raw_memory, _ = GetRealData(dataset_file=test_datapath, phase="test", stride=stride, windows_size=windows_size,
+                                     dataset_slice=test_sl)
     trainer_sim.memory = rawob
     data_generator.raw_memory = train_raw_memory
 

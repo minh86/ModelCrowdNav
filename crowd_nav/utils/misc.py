@@ -45,16 +45,21 @@ def PositiveRate(memory):
 
 
 def GetRealData(dataset_file, phase="train", capacity=10000, stride=-1, windows_size=-1, padding_last="stay",
-                padding_first="none"):
+                padding_first="none", dataset_slice=None):
     # dataset_plots(dataset_file)
     reader = Reader(dataset_file, scene_type='both')
     reader.joinScene(stride, windows_size)  # Join multiple scenes into one
-    limit =-1;start = 0
-    if phase=="train":
-        limit = int(0.8 * len(reader.scenes_by_id))
-    if phase=="val":
-        start = int(0.8 * len(reader.scenes_by_id))
-        limit = len(reader.scenes_by_id) - start
+    limit = -1; start = 0; total = len(reader.scenes_by_id)
+    if dataset_slice is not None:
+        start = dataset_slice[0]
+        total = dataset_slice[1]
+        if phase == "test":
+            limit = total
+    if phase == "train":
+        limit = int(0.8 * total)
+    if phase == "val":
+        start = int(0.8 * total)
+        limit = total - start
 
     scenes = reader.scenes(limit=limit, start=start)
     raw_memory = ReplayMemory(capacity)
