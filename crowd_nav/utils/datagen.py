@@ -220,6 +220,10 @@ class DataGen(object):
                 return True
         return False
 
+    # count episodes
+    def count(self):
+        return len(self.get_episode_start_index())
+
     # get index for first state
     def get_episode_start_index(self):
         indexes = [];
@@ -249,7 +253,10 @@ class DataGen(object):
             obs.append(ob)
             if done:
                 break
-        return obs, start_ends[:max_human]
+        if max_human>0:
+            return obs, start_ends[:max_human]
+        else:
+            return obs, start_ends
 
     # create JointState from last real episode
     def get_real_state(self, random_epi=False, max_human=-1, random_robot=True):

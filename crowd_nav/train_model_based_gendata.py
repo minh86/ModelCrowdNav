@@ -386,7 +386,7 @@ for episode in tqdm(range(train_episodes)):
             data_generator.raw_memory = val_raw_memory
             data_generator.counter = 0
             cumulative_rewards, success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explore_in_mix(
-                env.case_size['val'], # val size for crowds_students001.ndjson
+                data_generator.count(), # val size for crowds_students001.ndjson
                 # max_human=max_human,
                 random_robot=False,
                 add_sim=False,
@@ -439,7 +439,7 @@ if args.use_dataset:
     data_generator.raw_memory = test_raw_memory
     data_generator.counter=0
     cumulative_rewards, success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explore_in_mix(
-        env.case_size['test'], # test size for crowds_students003.ndjson
+        data_generator.count(), # test size for crowds_students003.ndjson
         # max_human=max_human,
         random_robot=False,
         add_sim=False,
