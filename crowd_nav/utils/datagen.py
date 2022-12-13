@@ -286,7 +286,8 @@ class DataGen(object):
                 pad_y = padding_dis * math.sin(moving_vector[1] / np.linalg.norm(moving_vector))
                 px, py, gx, gy = px - pad_x, py - pad_y, gx + pad_x, gy + pad_y
                 init_dis = [np.linalg.norm([px-h.px, py-h.py]) for h in init_state]
-                min_dis = min(init_dis)
+                if len(init_dis) >0:
+                    min_dis = min(init_dis)
         else:
             # random replace human with robot
             min_dis = 0
@@ -304,7 +305,8 @@ class DataGen(object):
                 px, py, gx, gy = px-pad_x, py-pad_y, gx+pad_x, gy+pad_y
 
                 init_dis = [np.linalg.norm([px - h.px, py - h.py]) for h in init_state]
-                min_dis = min(init_dis)
+                if len(init_dis) > 0:
+                    min_dis = min(init_dis)
 
         # set start and goal position for robot
         robot_info = RobotInfo(px, py, gx, gy)
