@@ -29,6 +29,7 @@ def main():
     parser.add_argument('--neptune', default=False, action='store_true')
     parser.add_argument('--neptune_name', type=str, default='Untitled')
     parser.add_argument('--use_dataset', default=False, action='store_true')  # using dataset instead of simulator
+    parser.add_argument('--cutting_point', type=int, default=-1)  # split point for train_val and test dataset
 
     args = parser.parse_args()
 
@@ -111,9 +112,13 @@ def main():
             view_distance = train_config.getint('train_sim', 'view_distance')
             view_human = train_config.getint('train_sim', 'view_human')
 
+            test_sl = None
+            if args.cutting_point > 0:
+                test_sl = [args.cutting_point, env.case_size['test']]
+
             data_generator = DataGen(None, robot, env_sim, policy)
             test_raw_memory, _ = GetRealData(dataset_file=test_datapath, phase="test", stride=stride,
-                                             windows_size=windows_size)
+                                             windows_size=windows_size, dataset_slice=test_sl)
             data_generator.raw_memory = test_raw_memory
             data_generator.counter = 0
             cumulative_rewards, success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explore_in_mix(
