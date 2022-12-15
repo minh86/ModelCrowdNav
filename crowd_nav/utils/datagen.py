@@ -259,61 +259,63 @@ class DataGen(object):
             return obs, start_ends
 
     # create JointState from last real episode
-    def get_real_state(self, random_epi=False, max_human=-1, random_robot=True):
+    def get_real_state(self, random_epi=False, max_human=-1, random_robot=True, replace_robot=False):
         RobotInfo = namedtuple('RobotInfo', ['px', 'py', 'gx', 'gy'])
         px, py, gx, gy = None, None, None, None
         obs, start_end = self.pick_real_episode(random_epi=random_epi, max_human=max_human)
         raw_states = []
-        distances = [np.linalg.norm([p[2] - p[0], p[3] - p[1]]) for p in start_end]
-        avr_dis = np.average(distances)
-        possible_case = [i for i in range(len(distances)) if (self.env.time_limit * self.robot.v_pref)
-                         > distances[i] > avr_dis]
-        if random_robot is False:  # replace robot by human with the possible longest path
-            i_poss = list(enumerate(distances))
-            sorted_poss = sorted(i_poss, key=lambda x: x[1])[-len(possible_case):][::-1]
-            possible_case = [case[0] for case in sorted_poss]
-            min_dis = 0
-            while min_dis < self.robot.radius * 4:  # check if robot collide with human at init state
-                if len(possible_case) == 0:  # cant find possible init position
-                    return [], RobotInfo(None, None, None, None)
-                set_robot = possible_case.pop(random.randrange(len(possible_case)))
-                init_state = obs[0][:set_robot] + obs[0][set_robot + 1:]
-                # pad start, end position
-                [px, py, gx, gy] = [start_end[set_robot][i] for i in range(4)]
-                moving_vector = [gx - px, gy - py]
-                padding_dis = 2
-                pad_x = padding_dis * math.sin(moving_vector[0] / np.linalg.norm(moving_vector))
-                pad_y = padding_dis * math.sin(moving_vector[1] / np.linalg.norm(moving_vector))
-                px, py, gx, gy = px - pad_x, py - pad_y, gx + pad_x, gy + pad_y
-                init_dis = [np.linalg.norm([px-h.px, py-h.py]) for h in init_state]
-                if len(init_dis) >0:
-                    min_dis = min(init_dis)
-        else:
-            # random replace human with robot
-            min_dis = 0
-            while min_dis < self.robot.radius*4: # check if robot collide with human at init state
-                if len(possible_case) == 0:# cant find possible init position
-                    return [], RobotInfo(None, None, None, None)
-                set_robot = possible_case.pop(random.randrange(len(possible_case)))
-                init_state = obs[0][:set_robot]+obs[0][set_robot+1:]
-                # pad start, end position
-                [px, py, gx, gy] = [start_end[set_robot][i] for i in range(4)]
-                moving_vector = [gx-px, gy-py]
-                padding_dis = 2
-                pad_x = padding_dis*math.sin(moving_vector[0]/np.linalg.norm(moving_vector))
-                pad_y = padding_dis*math.sin(moving_vector[1]/np.linalg.norm(moving_vector))
-                px, py, gx, gy = px-pad_x, py-pad_y, gx+pad_x, gy+pad_y
+        robot_info = None
+        if replace_robot: #Replace robot only
+            distances = [np.linalg.norm([p[2] - p[0], p[3] - p[1]]) for p in start_end]
+            avr_dis = np.average(distances)
+            possible_case = [i for i in range(len(distances)) if (self.env.time_limit * self.robot.v_pref)
+                             > distances[i] > avr_dis]
+            if random_robot is False:  # replace robot by human with the possible longest path
+                i_poss = list(enumerate(distances))
+                sorted_poss = sorted(i_poss, key=lambda x: x[1])[-len(possible_case):][::-1]
+                possible_case = [case[0] for case in sorted_poss]
+                min_dis = 0
+                while min_dis < self.robot.radius * 4:  # check if robot collide with human at init state
+                    if len(possible_case) == 0:  # cant find possible init position
+                        return [], RobotInfo(None, None, None, None)
+                    set_robot = possible_case.pop(random.randrange(len(possible_case)))
+                    init_state = obs[0][:set_robot] + obs[0][set_robot + 1:]
+                    # pad start, end position
+                    [px, py, gx, gy] = [start_end[set_robot][i] for i in range(4)]
+                    moving_vector = [gx - px, gy - py]
+                    padding_dis = 2
+                    pad_x = padding_dis * math.sin(moving_vector[0] / np.linalg.norm(moving_vector))
+                    pad_y = padding_dis * math.sin(moving_vector[1] / np.linalg.norm(moving_vector))
+                    px, py, gx, gy = px - pad_x, py - pad_y, gx + pad_x, gy + pad_y
+                    init_dis = [np.linalg.norm([px-h.px, py-h.py]) for h in init_state]
+                    if len(init_dis) >0:
+                        min_dis = min(init_dis)
+            else:
+                # random replace human with robot
+                min_dis = 0
+                while min_dis < self.robot.radius*4: # check if robot collide with human at init state
+                    if len(possible_case) == 0:# cant find possible init position
+                        return [], RobotInfo(None, None, None, None)
+                    set_robot = possible_case.pop(random.randrange(len(possible_case)))
+                    init_state = obs[0][:set_robot]+obs[0][set_robot+1:]
+                    # pad start, end position
+                    [px, py, gx, gy] = [start_end[set_robot][i] for i in range(4)]
+                    moving_vector = [gx-px, gy-py]
+                    padding_dis = 2
+                    pad_x = padding_dis*math.sin(moving_vector[0]/np.linalg.norm(moving_vector))
+                    pad_y = padding_dis*math.sin(moving_vector[1]/np.linalg.norm(moving_vector))
+                    px, py, gx, gy = px-pad_x, py-pad_y, gx+pad_x, gy+pad_y
 
-                init_dis = [np.linalg.norm([px - h.px, py - h.py]) for h in init_state]
-                if len(init_dis) > 0:
-                    min_dis = min(init_dis)
+                    init_dis = [np.linalg.norm([px - h.px, py - h.py]) for h in init_state]
+                    if len(init_dis) > 0:
+                        min_dis = min(init_dis)
 
-        # set start and goal position for robot
-        robot_info = RobotInfo(px, py, gx, gy)
+            # set start and goal position for robot
+            robot_info = RobotInfo(px, py, gx, gy)
 
-        # remove human traj which is replaced by robot
-        h_id = set_robot
-        obs = [ob[:h_id] + ob[h_id + 1:] if len(ob) > h_id else ob for ob in obs]
+            # remove human traj which is replaced by robot
+            h_id = set_robot
+            obs = [ob[:h_id] + ob[h_id + 1:] if len(ob) > h_id else ob for ob in obs]
 
         for ob in obs:
             state = JointState(self.full_state, ob)
@@ -367,7 +369,7 @@ class DataGen(object):
     # gen data by explore in mix reality
     def gen_data_from_explore_in_mix(self, num_sample, phase="train", min_end=1, max_human=-1, imitation_learning=False,
                                      add_sim=True, stay=False, random_epi=True, random_robot=True, render_path=None,
-                                     view_distance=-1, view_human=-1, returnRate=False, updateMemory=True):
+                                     view_distance=-1, view_human=-1, returnRate=False, updateMemory=True, replace_robot=False):
         '''
         set_robot = 0: doesn't used; n (positive) replace human n-th, same direction; -n human n-th reverse direction
         render_path: render every episode (for debug only)
@@ -392,7 +394,7 @@ class DataGen(object):
         while c_sample < num_sample:
             # get real experience
             raw_states, robot_info = self.get_real_state(random_epi=random_epi, max_human=max_human,
-                                                         random_robot=random_robot)
+                                                         random_robot=random_robot, replace_robot=replace_robot)
             if raw_states == []:
                 continue
             if len(raw_states) <= min_end:

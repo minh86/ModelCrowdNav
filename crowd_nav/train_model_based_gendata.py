@@ -350,7 +350,7 @@ for episode in tqdm(range(train_episodes)):
                                                                                  add_sim=(not args.real_only),
                                                                                  max_human=max_human, phase='train',
                                                                                  view_distance=view_distance,
-                                                                                 view_human=view_human,)
+                                                                                 view_human=view_human,replace_robot=args.use_dataset)
     mem_success.push(success);
     mem_collision.push(collision);
     mem_timeout.push(timeout)
@@ -396,6 +396,7 @@ for episode in tqdm(range(train_episodes)):
                 view_distance=view_distance,
                 view_human=view_human,
                 returnRate=True,
+                replace_robot=args.use_dataset,
             )
             explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
         else:
@@ -449,6 +450,7 @@ if args.use_dataset:
         view_distance=view_distance,
         view_human=view_human,
         returnRate=True,
+        replace_robot=args.use_dataset,
     )
     explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
 else:
