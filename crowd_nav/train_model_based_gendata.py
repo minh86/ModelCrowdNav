@@ -236,7 +236,7 @@ if args.neptune:
 # ============  Using dataset  ===============
 
 if not args.use_dataset:
-    logging.info("Collect data from simulation...")
+    logging.info("Collect %s trajectories from simulation..." %(sample_episodes_in_real_before_train))
     explorer.run_k_episodes(sample_episodes_in_real_before_train, 'train', update_memory=False, update_raw_ob=True,
                             stay=True)
 else:  # -----------  Using trajnet++ dataset  ------------
