@@ -228,11 +228,11 @@ class DataGen(object):
     def get_episode_start_index(self):
         indexes = [];
         add = True
-        for i, (ob, reward, done, info, _) in enumerate(self.raw_memory):
+        for i, data in enumerate(self.raw_memory):
             if add:
                 indexes.append(i)
                 add = False
-            if done:
+            if data[2]: # done
                 add = True
         return indexes
 
@@ -246,17 +246,24 @@ class DataGen(object):
             i = indexes[self.counter % len(indexes)]
             self.counter += 1
         mem_states = self.raw_memory[i:]
-        for i, (ob, reward, done, info, start_ends) in enumerate(mem_states):
+        for i, data  in enumerate(mem_states):
+            # data: ob, reward, done, info, start_ends
             # if self.someone_is_moving(ob):
+            ob = data[0]
+            done = data[2]
             if 0 < max_human < len(ob):
                 ob = ob[:max_human]
             obs.append(ob)
             if done:
                 break
-        if max_human>0:
-            return obs, start_ends[:max_human]
+        if len(data) == 5 :# has start_ends
+            start_ends = data[4]
+            if max_human>0:
+                return obs, start_ends[:max_human]
+            else:
+                return obs, start_ends
         else:
-            return obs, start_ends
+            return obs, None
 
     # create JointState from last real episode
     def get_real_state(self, random_epi=False, max_human=-1, random_robot=True, replace_robot=False):
