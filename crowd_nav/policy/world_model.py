@@ -7,7 +7,8 @@ from torch import nn
 from crowd_nav.policy.cadrl import mlp
 
 # SGAN import
-from sgan.data.loader import data_loader
+import sys
+sys.path.append('../')
 from sgan.utils import *
 from sgan.data.trajectories import read_file
 
