@@ -10,6 +10,7 @@ from crowd_sim.envs.utils.info import *
 from crowd_sim.envs.utils.utils import point_to_segment_dist
 from crowd_sim.envs.utils.state import ObservableState
 from crowd_sim.envs.utils.action import ActionXY
+from crowd_nav.policy.world_model import *
 import torch
 
 class ModelCrowdSim(gym.Env):
@@ -52,8 +53,6 @@ class ModelCrowdSim(gym.Env):
         # for Model Crowd Sim
         self.sim_world = None
         self.device = None
-        self.add_noise = False
-        self.use_linear_to_gen = False
 
     def configure(self, config):
         self.config = config
@@ -394,19 +393,17 @@ class ModelCrowdSim(gym.Env):
             reward = 0
             done = False
             info = Nothing()
+
+        #------------  Imagine state from world model  -----------
         if new_v is None:
-            if self.use_linear_to_gen:
-                # gen new position for humans from v_pref
-                new_v = [human.get_observable_state().getvel() for human in self.humans]
+            # gen new position for humans from world model
+            current_s = [human.get_observable_state().getvalue() for human in self.humans]
+            if isinstance(self.sim_world, SGANWorld):
+                new_v = self.sim_world(current_s)
             else:
-                # gen new position for humans from simulation model
-                current_s = [human.get_observable_state().getvalue() for human in self.humans]
                 current_s = torch.Tensor([current_s]).to(self.device)
                 current_s = current_s.reshape(current_s.size(0), -1)
-                if self.add_noise:
-                    new_v = self.sim_world.noise_pre(current_s)[0]
-                else:
-                    new_v = self.sim_world(current_s)[0]
+                new_v = self.sim_world(current_s)[0]
                 new_v = torch.reshape(new_v, (self.human_num, 2)).tolist()
 
         if update:

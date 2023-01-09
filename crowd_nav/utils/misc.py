@@ -45,11 +45,17 @@ def PositiveRate(memory):
 
 
 def GetRealData(dataset_file, phase="train", capacity=10000, stride=-1, windows_size=-1, padding_last="stay",
-                padding_first="none", dataset_slice=None):
+                padding_first="none", dataset_slice=None, Store_for_world_fn=None, cacheFile=None):
+    '''
+    Store_for_world_fn: storing function, for store data
+    cacheFile: store data for sgan data loader
+    '''
     # dataset_plots(dataset_file)
     reader = Reader(dataset_file, scene_type='both')
     reader.joinScene(stride, windows_size)  # Join multiple scenes into one
-    limit = -1; start = 0; total = len(reader.scenes_by_id)
+    limit = -1
+    start = 0
+    total = len(reader.scenes_by_id)
     if dataset_slice is not None:
         start = dataset_slice[0]
         total = dataset_slice[1]
@@ -63,9 +69,10 @@ def GetRealData(dataset_file, phase="train", capacity=10000, stride=-1, windows_
     scenes = reader.scenes(limit=limit, start=start)
     raw_memory = ReplayMemory(capacity)
     rawob = ReplayMemory(capacity)
-    count=0
+    count = 0
+    cacheFrames = []
     for scene_id, fps, pri_human, rows, paths in scenes:
-        count+=1
+        count += 1
         start = reader.scenes_by_id[scene_id].start
         end = reader.scenes_by_id[scene_id].end
         frames = range(start, end + 1)
@@ -74,7 +81,7 @@ def GetRealData(dataset_file, phase="train", capacity=10000, stride=-1, windows_
                      for r in reader.tracks_by_frame.get(frame, [])]
         frame_ids = sorted([*{*frame_ids}])
         obs = Convert_to_ObserState(fps, paths, frame_ids, padding_last=padding_last, padding_first=padding_first)
-        start_ends = [[p[0].x, p[0].y, p[-1].x, p[-1].y] for p in paths] # possible scenarios for robot
+        start_ends = [[p[0].x, p[0].y, p[-1].x, p[-1].y] for p in paths]  # possible scenarios for robot
         for i, ob in enumerate(obs):
             done = False
             if i == len(obs) - 1:
@@ -83,20 +90,45 @@ def GetRealData(dataset_file, phase="train", capacity=10000, stride=-1, windows_
 
             # memory for trainning world model
             if i > 0:
-                current_s = [tmpo.getvalue() for tmpo in obs[i - 1]]
-                next_s = [tmpo.getvalue() for tmpo in obs[i]]
-                next_action = [s[2:] for s in next_s]
-                next_action = next_action[:len(current_s)]
-                rawob.push((torch.Tensor(current_s), torch.Tensor(next_action)))
+                Store_for_world_fn(rawob, obs[i], obs[i - 1])
+
+        # save data for sgan
+        if cacheFile is not None:
+            saveFrames = [r
+                          for frame in frames
+                          for r in reader.tracks_by_frame.get(frame, [])]
+            for saveFrame in saveFrames:
+                cacheFrames.append([saveFrame.frame, saveFrame.pedestrian, saveFrame.x, saveFrame.y])
+
+    # save data for sgan
+    if cacheFile is not None:
+        cacheFrames = np.unique(cacheFrames, axis=0)
+        fcount = 0
+        for full_scene in reader.j_full_durations:
+            filterFrames = [c for c in cacheFrames if full_scene[0] <= c[0] <= full_scene[1]]
+            if len(filterFrames)>0:
+                fcount += 1
+                with open(os.path.join(cacheFile, str(fcount) + ".txt"), 'w') as cache_file_h:
+                    for cacheFrame in filterFrames:
+                        cache_file_h.write("%s\t%s\t%s\t%s\n" % (cacheFrame[0], cacheFrame[1], cacheFrame[2], cacheFrame[3]))
 
     logging.info("Loaded %s cases in %s for phase: %s " % (count, os.path.basename(dataset_file), phase))
     return raw_memory, rawob
 
 
+def StoreAction(memory, cur_obs, last_obs):
+    current_s = [tmpo.getvalue() for tmpo in last_obs]
+    next_s = [tmpo.getvalue() for tmpo in cur_obs]
+    next_action = [s[2:] for s in next_s]
+    next_action = next_action[:len(current_s)]
+    memory.push((torch.Tensor(current_s), torch.Tensor(next_action)))
+
+
 def Convert_to_ObserState(fps, paths, frame_ids, radius=0.3, padding_last="stay", padding_first="none"):
     obs = []
     for c_frame in frame_ids:
-        obs.append(GetState(paths, c_frame, frame_ids, radius=radius, fps=fps, padding_last=padding_last, padding_first=padding_first))
+        obs.append(GetState(paths, c_frame, frame_ids, radius=radius, fps=fps, padding_last=padding_last,
+                            padding_first=padding_first))
     # tmp =[ob[5] if 5< len(ob) else [] for ob in obs]
     return obs
 
@@ -105,7 +137,7 @@ def GetState(paths, c_frame, frame_ids, radius=0.3, fps=2.5, padding_last="stay"
     state = []
     for p in paths:
         p_i = GetIndex(c_frame, p, frame_ids)
-        if p_i == -1: # padding first
+        if p_i == -1:  # padding first
             if padding_first == "none":
                 continue
             if padding_first == "stay":
@@ -113,18 +145,19 @@ def GetState(paths, c_frame, frame_ids, radius=0.3, fps=2.5, padding_last="stay"
         vx, vy = GetVel(p_i, p, fps)
         if p_i >= len(p):
             if padding_last == "stay":
-                px, py = p[-1].x, p[-1].y # disappeared human is padding by its last position
+                px, py = p[-1].x, p[-1].y  # disappeared human is padding by its last position
             if padding_last == "moving":
                 # disappeared human is padding by keep moving with last velocity
-                last_vx, last_vy = GetVel(len(p)-1, p, fps)
-                px = p[-1].x + (last_vx/fps) * (p_i-len(p))
-                py = p[-1].y + (last_vy/fps) * (p_i-len(p))
+                last_vx, last_vy = GetVel(len(p) - 1, p, fps)
+                px = p[-1].x + (last_vx / fps) * (p_i - len(p))
+                py = p[-1].y + (last_vy / fps) * (p_i - len(p))
                 vx, vy = last_vx, last_vy
         else:
             px, py = p[p_i].x, p[p_i].y
 
         state.append(ObservableState(px, py, vx, vy, radius))
     return state
+
 
 def GetIndex(frameid, path, frame_ids):
     if frameid < path[0].frame:

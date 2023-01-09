@@ -16,6 +16,7 @@ class Reader(object):
     """
 
     def __init__(self, input_file, scene_type=None, image_file=None):
+        self.j_full_durations = None
         if scene_type is not None and scene_type not in {'rows', 'paths', 'tags', 'both'}:
             raise Exception('scene_type not supported')
         self.scene_type = scene_type
@@ -53,7 +54,7 @@ class Reader(object):
             else:
                 j_dur.append(d)
                 s_id.append(sorted_id[i + 1])
-
+        full_jur = j_dur
         # create scenes with fix length (windows_size)
         if stride > 0 and windows_size > 0:
             s_j_dur = []
@@ -71,7 +72,7 @@ class Reader(object):
                     s_j_id.append(s_id[i])
             j_dur = s_j_dur
             s_id = s_j_id
-        return j_dur, s_id
+        return j_dur, s_id, full_jur
 
     def joinScene(self, stride=-1, windows_size=-1):
         duration = []
@@ -81,7 +82,7 @@ class Reader(object):
         for id in sorted_id:
             scene = self.scenes_by_id[id]
             duration.append([scene.start, scene.end])
-        j_durations, j_scened_id = self.joinDuration(duration, sorted_id, stride, windows_size)
+        j_durations, j_scened_id, j_full_durations = self.joinDuration(duration, sorted_id, stride, windows_size)
         for i, dur in enumerate(j_durations):
             scene = self.scenes_by_id[j_scened_id[i]]
             pedestrian = self.tracks_by_frame[dur[0]][0].pedestrian
@@ -90,6 +91,7 @@ class Reader(object):
             joined_scene[row.scene] = row
 
         self.scenes_by_id = joined_scene
+        self.j_full_durations = j_full_durations
 
     def scenes(self, randomize=False, limit=0, ids=None, sample=None, start=0):
         scene_ids = self.scenes_by_id.keys()

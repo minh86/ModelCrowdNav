@@ -376,13 +376,15 @@ class DataGen(object):
     # gen data by explore in mix reality
     def gen_data_from_explore_in_mix(self, num_sample, phase="train", min_end=1, max_human=-1, imitation_learning=False,
                                      add_sim=True, stay=False, random_epi=True, random_robot=True, render_path=None,
-                                     view_distance=-1, view_human=-1, returnRate=False, updateMemory=True, replace_robot=False):
+                                     view_distance=-1, view_human=-1, returnRate=False, updateMemory=True, replace_robot=False,
+                                     sgan_genfile=None):
         '''
-        set_robot = 0: doesn't used; n (positive) replace human n-th, same direction; -n human n-th reverse direction
+        min_end: the minimum length of real data
         render_path: render every episode (for debug only)
         random_robot: replace robot start end goal by random human traj
         random_epi: pick random episode from real experience
-        add_sim: add sim state base on real experience
+        add_sim: add sim state from world model
+        sgan_genfile: input file for generating trajectories
         '''
 
         reach_goal = 0
@@ -410,6 +412,16 @@ class DataGen(object):
             if add_sim:
                 length = random.randrange(min_end, len(raw_states))
             raw_states = raw_states[:length]
+            # create input for sgan
+            if sgan_genfile is not None:
+                frameid = 0
+                with open(sgan_genfile, 'w') as sgan_genfile_h:
+                    tmp = raw_states[-min_end:]
+                    for state in tmp:
+                        for i, human in enumerate(state.human_states):
+                            sgan_genfile_h.write("%s\t%s\t%s\t%s\n" % (frameid, i, human.px, human.py))
+                        frameid += 1
+
             # set env to replay mode
             human_states = raw_states[0].human_states
             self.env.set_current_state(human_states, robot_info)
@@ -451,9 +463,9 @@ class DataGen(object):
                 # imagine next state when needed
                 else:
                     if add_sim:
-                        next_h_action = None
+                        next_h_action = None # add imagine state from world model
                     else:
-                        next_h_action = [[0, 0]] * self.env.human_num
+                        next_h_action = [[0, 0]] * self.env.human_num # humans stop moving
                     ob, reward, done, info = self.env.step(action, new_v=next_h_action)
 
                 states.append(self.transform(joined_state))
