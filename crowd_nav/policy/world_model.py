@@ -10,7 +10,7 @@ from crowd_nav.policy.cadrl import mlp
 import sys
 sys.path.append('../')
 from sgan.utils import *
-from sgan.data.trajectories import read_file
+from sgan.sdata.trajectories import read_file
 
 
 def init_weight(m):

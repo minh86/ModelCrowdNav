@@ -18,7 +18,7 @@ from collections import defaultdict
 from tqdm import tqdm
 
 sys.path.append('../')
-from sgan.data.loader import data_loader
+from sgan.sdata.loader import data_loader
 from sgan.losses import gan_g_loss, gan_d_loss, l2_loss
 from sgan.losses import displacement_error, final_displacement_error
 
