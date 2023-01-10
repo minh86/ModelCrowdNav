@@ -30,7 +30,7 @@ def main():
     # read input file: input_dir \t video_tag
     with open(args.input_file, 'r') as f:
         for line in f:
-            line = line.strip().split('\t')
+            line = line.strip().split()
             data.append(line)
     for case in data:
         gc.collect()
