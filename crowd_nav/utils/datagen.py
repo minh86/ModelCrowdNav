@@ -374,12 +374,13 @@ class DataGen(object):
         return joined_state
 
     # gen data by explore in mix reality
-    def gen_data_from_explore_in_mix(self, num_sample, phase="train", min_end=1, max_human=-1, imitation_learning=False,
+    def gen_data_from_explore_in_mix(self, num_sample, phase="train", min_end=1, static_end=-1, max_human=-1, imitation_learning=False,
                                      add_sim=True, stay=False, random_epi=True, random_robot=True, render_path=None,
                                      view_distance=-1, view_human=-1, returnRate=False, updateMemory=True, replace_robot=False,
                                      sgan_genfile=None):
         '''
         min_end: the minimum length of real data
+        max_end: the static length of real data
         render_path: render every episode (for debug only)
         random_robot: replace robot start end goal by random human traj
         random_epi: pick random episode from real experience
@@ -399,7 +400,7 @@ class DataGen(object):
         c_sample = 0
         pbar = None
         if imitation_learning or phase == "val" or phase == "test":
-            pbar = tqdm(total=num_sample)
+            pbar = tqdm(total=num_sample, position=0, leave=True)
         while c_sample < num_sample:
             # get real experience
             raw_states, robot_info = self.get_real_state(random_epi=random_epi, max_human=max_human,
@@ -411,6 +412,8 @@ class DataGen(object):
             length = len(raw_states)
             if add_sim:
                 length = random.randrange(min_end, len(raw_states))
+                if static_end > 0:
+                    length = static_end # static length
             raw_states = raw_states[:length]
             # create input for sgan
             if sgan_genfile is not None:

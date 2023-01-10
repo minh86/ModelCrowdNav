@@ -9,7 +9,6 @@ import numpy as np
 import sys
 import argparse
 import gc
-import logging
 import os
 import time
 
@@ -436,7 +435,7 @@ class Trainer_SGAN(object):
             'best_t_nl': None,
         }
         t0 = None
-        pbar = tqdm(total=args.num_iterations)
+        pbar = tqdm(total=args.num_iterations, position=0, leave=True)
         while t < args.num_iterations:
             gc.collect()
             d_steps_left = args.d_steps

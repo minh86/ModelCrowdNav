@@ -62,6 +62,8 @@ parser.add_argument('--cutting_point', type=int, default=-1) # split point for t
 # SGAN
 parser.add_argument('--obs_len', type=int, default=8)
 parser.add_argument('--sgan_train_per_episode', type=int, default=10)
+parser.add_argument('--pretrainPath', type=str, default="")  # use real only data
+
 args = parser.parse_args()
 
 # configure paths
@@ -186,7 +188,7 @@ explorer = Explorer(env, robot, device, memory, policy.gamma, target_policy=poli
 explorer.rawob = ReplayMemory(capacity)
 explorer.raw_memory = ReplayMemory(capacity)
 
-# config world model
+# ----------------   config SGAN   ------------------
 os.makedirs(os.path.join(args.output_dir, 'cacheFiles/'))
 os.makedirs(os.path.join(args.output_dir, 'cacheFiles/train'))
 os.makedirs(os.path.join(args.output_dir, 'cacheFiles/val'))
@@ -203,7 +205,7 @@ if not policy.multiagent_training:
 env_sim.set_robot(robot)
 env_sim.device = device
 model_sim = SGANWorld(os.path.join(args.output_dir, 'generator.pt'), cacheFile_generate, device,
-                      obs_len=args.obs_len, time_step=env_sim.time_step)# SGAN model
+                      obs_len=args.obs_len, time_step=env_sim.time_step, pretrainPath=args.pretrainPath)# SGAN model
 env_sim.sim_world = model_sim
 env.device = device
 env.sim_world = model_sim
@@ -269,11 +271,12 @@ else:  # -----------  Using trajnet++ dataset  ------------
     data_generator.raw_memory = train_raw_memory
 
 # ============  training world model  ===============
-trainer_sgan = Trainer_SGAN(args.output_dir, obs_len=args.obs_len, device=device)
-logging.info("Training world model...")
-ms_valid_loss, generator = trainer_sgan.run_train()
-model_sim.generator = generator
-logging.info('Model-based env. Total loss: {:.4f}'.format(ms_valid_loss))
+if args.pretrainPath == "":
+    trainer_sgan = Trainer_SGAN(args.output_dir, obs_len=args.obs_len, device=device)
+    logging.info("Training world model...")
+    ms_valid_loss, generator = trainer_sgan.run_train()
+    model_sim.generator = generator
+    logging.info('Model-based env. Total loss: {:.4f}'.format(ms_valid_loss))
 
 # ============ imitation learning  ====================
 logging.info("Start imitation learning...")
@@ -300,11 +303,13 @@ _, success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_exp
                                                                                             add_sim=(not args.real_only),
                                                                                             # random_epi=False,
                                                                                             # render_path=args.output_dir,
+                                                                                            replace_robot=args.use_dataset,
                                                                                             # stay=True,
                                                                                             view_distance=view_distance,
                                                                                             view_human=view_human,
                                                                                             sgan_genfile=cacheFile_generate,
                                                                                             min_end=args.obs_len,
+                                                                                            static_end=args.obs_len,
                                                                                             )
 video_tag = "il_vi"
 explorer_sim.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + ".gif"))
@@ -340,7 +345,7 @@ for episode in tqdm(range(train_episodes)):
     # if args.reinit_world:
     #     model_sim.apply(init_weight)  # reinit weight before training
     # ms_valid_loss = trainer_sgan.run_train()
-    if (episode+1) % args.sgan_train_per_episode == 0:
+    if (episode+1) % args.sgan_train_per_episode == 0 and args.pretrainPath == "":
         logging.info("Training world model...")
         ms_valid_loss, generator = trainer_sgan.run_train()
         model_sim.generator = generator
@@ -356,7 +361,8 @@ for episode in tqdm(range(train_episodes)):
                                                                                  add_sim=(not args.real_only),
                                                                                  max_human=max_human, phase='train',
                                                                                  view_distance=view_distance,
-                                                                                 view_human=view_human,replace_robot=args.use_dataset,
+                                                                                 view_human=view_human,
+                                                                                 replace_robot=args.use_dataset,
                                                                                  sgan_genfile=cacheFile_generate,
                                                                                  min_end=args.obs_len,)
     mem_success.push(success)

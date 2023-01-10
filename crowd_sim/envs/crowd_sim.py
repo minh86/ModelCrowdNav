@@ -67,7 +67,7 @@ class CrowdSim(gym.Env):
             self.case_capacity = {'train': np.iinfo(np.uint32).max - 2000, 'val': 1000, 'test': 1000}
             # self.case_size = {'train': np.iinfo(np.uint32).max - 2000, 'val': config.getint('env', 'val_size'),
             #                   'test': config.getint('env', 'test_size')}
-            self.case_size = {'train': 150, 'val': config.getint('env', 'val_size'),
+            self.case_size = {'train': 100, 'val': config.getint('env', 'val_size'),
                               'test': config.getint('env', 'test_size')}
             self.train_val_sim = config.get('sim', 'train_val_sim')
             self.test_sim = config.get('sim', 'test_sim')

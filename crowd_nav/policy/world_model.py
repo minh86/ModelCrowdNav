@@ -1,4 +1,5 @@
 import gc
+import logging
 import math
 from attrdict import AttrDict
 
@@ -11,7 +12,7 @@ import sys
 sys.path.append('../')
 from sgan.utils import *
 from sgan.sdata.trajectories import read_file
-
+from sgan.models import TrajectoryGenerator
 
 def init_weight(m):
     if type(m) == nn.Linear:
@@ -104,9 +105,34 @@ class AttentionWorld(nn.Module):
         # actions = self.output_func(actions)
         return actions
 
+def get_generator(checkpoint, device):
+    args = AttrDict(checkpoint['args'])
+    generator = TrajectoryGenerator(
+        obs_len=args.obs_len,
+        pred_len=args.pred_len,
+        embedding_dim=args.embedding_dim,
+        encoder_h_dim=args.encoder_h_dim_g,
+        decoder_h_dim=args.decoder_h_dim_g,
+        mlp_dim=args.mlp_dim,
+        num_layers=args.num_layers,
+        noise_dim=args.noise_dim,
+        noise_type=args.noise_type,
+        noise_mix_type=args.noise_mix_type,
+        pooling_type=args.pooling_type,
+        pool_every_timestep=args.pool_every_timestep,
+        dropout=args.dropout,
+        bottleneck_dim=args.bottleneck_dim,
+        neighborhood_size=args.neighborhood_size,
+        grid_size=args.grid_size,
+        batch_norm=args.batch_norm,
+        device=device)
+    generator.load_state_dict(checkpoint['g_state'])
+    generator.train()
+    return generator
 
 class SGANWorld(nn.Module):
-    def __init__(self, modelPath, dataFile, device, obs_len=8, pred_len=1, skip=1, delim='tab', time_step=0.4):
+    def __init__(self, modelPath, dataFile, device, obs_len=8, pred_len=1, skip=1, delim='tab', time_step=0.4,
+                 pretrainPath=""):
         super().__init__()
         self.model = None
         self.modelPath = modelPath
@@ -119,6 +145,10 @@ class SGANWorld(nn.Module):
         self.frameid = obs_len + 10
         self.generator = None
         self.time_step = time_step
+        if pretrainPath != "":
+            logging.info("Loading SGAN pretrain: %s" % pretrainPath)
+            checkpoint = torch.load(pretrainPath, map_location=device)
+            self.generator = get_generator(checkpoint, device)
 
     def data_loader(self):
         num_peds_in_seq = []
@@ -219,7 +249,6 @@ class SGANWorld(nn.Module):
                 cache_file_h.write("%s\t%s\t%s\t%s\n" % (cacheFrame[0], cacheFrame[1], cacheFrame[2], cacheFrame[3]))
 
         # get output action
-        # generator = torch.load(self.modelPath, map_location=self.device)
         num_samples = 1  # number of trajectories
         self.generator.decoder.seq_len=1
         with torch.no_grad():
