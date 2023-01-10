@@ -41,7 +41,7 @@ def main():
     args.policy_config = os.path.join(args.input_dir, os.path.basename(args.policy_config))
     args.train_config = os.path.join(args.input_dir, os.path.basename(args.train_config))
 
-    rl_weight_file = os.path.join(args.input_dir, 'not_use.pth')
+    rl_weight_file = os.path.join(args.input_dir, 'rl_model.pth')
     last_rl_weight_file = os.path.join(args.input_dir, 'last_rl_model.pth')
     weight_files = [rl_weight_file, last_rl_weight_file]
 
