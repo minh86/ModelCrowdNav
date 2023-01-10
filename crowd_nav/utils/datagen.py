@@ -237,7 +237,7 @@ class DataGen(object):
         return indexes
 
     # get a real episode
-    def pick_real_episode(self, random_epi=False, max_human=-1):
+    def pick_real_episode(self, random_epi=False, max_human=-1, test_case=None):
         obs = []
         indexes = self.get_episode_start_index()
         if random_epi:
@@ -245,8 +245,10 @@ class DataGen(object):
         else:
             i = indexes[self.counter % len(indexes)]
             self.counter += 1
+        if test_case is not None:
+            i = test_case
         mem_states = self.raw_memory[i:]
-        for i, data  in enumerate(mem_states):
+        for i, data in enumerate(mem_states):
             # data: ob, reward, done, info, start_ends
             # if self.someone_is_moving(ob):
             ob = data[0]
@@ -266,10 +268,10 @@ class DataGen(object):
             return obs, None
 
     # create JointState from last real episode
-    def get_real_state(self, random_epi=False, max_human=-1, random_robot=True, replace_robot=False):
+    def get_real_state(self, random_epi=False, max_human=-1, random_robot=True, replace_robot=False, test_case=test_case):
         RobotInfo = namedtuple('RobotInfo', ['px', 'py', 'gx', 'gy'])
         px, py, gx, gy = None, None, None, None
-        obs, start_end = self.pick_real_episode(random_epi=random_epi, max_human=max_human)
+        obs, start_end = self.pick_real_episode(random_epi=random_epi, max_human=max_human, test_case=test_case)
         raw_states = []
         robot_info = None
         if replace_robot: #Replace robot only
@@ -377,7 +379,7 @@ class DataGen(object):
     def gen_data_from_explore_in_mix(self, num_sample, phase="train", min_end=1, static_end=-1, max_human=-1, imitation_learning=False,
                                      add_sim=True, stay=False, random_epi=True, random_robot=True, render_path=None,
                                      view_distance=-1, view_human=-1, returnRate=False, updateMemory=True, replace_robot=False,
-                                     sgan_genfile=None):
+                                     sgan_genfile=None, test_case=None):
         '''
         min_end: the minimum length of real data
         max_end: the static length of real data
@@ -386,6 +388,7 @@ class DataGen(object):
         random_epi: pick random episode from real experience
         add_sim: add sim state from world model
         sgan_genfile: input file for generating trajectories
+        test_case: test case id
         '''
 
         reach_goal = 0
@@ -404,7 +407,8 @@ class DataGen(object):
         while c_sample < num_sample:
             # get real experience
             raw_states, robot_info = self.get_real_state(random_epi=random_epi, max_human=max_human,
-                                                         random_robot=random_robot, replace_robot=replace_robot)
+                                                         random_robot=random_robot, replace_robot=replace_robot,
+                                                         test_case=test_case)
             if raw_states == []:
                 continue
             if len(raw_states) <= min_end:
