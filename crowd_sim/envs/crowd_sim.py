@@ -494,7 +494,7 @@ class CrowdSim(gym.Env):
                     for human_direction in human_directions:
                         ax.add_artist(human_direction)
             plt.legend([robot], ['Robot'], fontsize=16)
-            plt.show()
+            plt.savefig(output_file)
         elif mode == 'video':
             fig, ax = plt.subplots(figsize=(7, 7))
             ax.tick_params(labelsize=16)
