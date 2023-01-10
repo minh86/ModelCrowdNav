@@ -33,6 +33,7 @@ def main():
             line = line.strip().split()
             data.append(line)
     for case in data:
+        logging.info("================= WORKING IN %s =================" % case[0])
         gc.collect()
         input_dir = case[0]
         video_tag = case[1]
