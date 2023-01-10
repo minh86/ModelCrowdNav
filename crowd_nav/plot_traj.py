@@ -30,6 +30,7 @@ def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s, %(levelname)s: %(message)s',
                         datefmt="%Y-%m-%d %H:%M:%S")
     data = []
+    env = None
     # read input file: input_dir \t video_tag
     with open(args.input_file, 'r') as f:
         for line in f:
@@ -58,8 +59,9 @@ def main():
         # configure environment
         env_config = configparser.RawConfigParser()
         env_config.read(env_config_file)
-        env = gym.make('CrowdSim-v0')
-        env.configure(env_config)
+        if env is None:
+            env = gym.make('CrowdSim-v0')
+            env.configure(env_config)
         robot = Robot(env_config, 'robot')
         robot.set_policy(policy)
         env.set_robot(robot)
