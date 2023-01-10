@@ -22,7 +22,9 @@ def main():
     parser.add_argument('--policy', type=str, default='sarl')
     parser.add_argument('--policy_config', type=str, default='configs_test/policy.config')
     parser.add_argument('--train_config', type=str, default='configs_test/train.config')
+    parser.add_argument('--input_dir', type=str, default='data/sarl5')
     parser.add_argument('--output_dir', type=str, default='data/sarl5')
+    parser.add_argument('--video_tag', type=str, default='sarl5')
     parser.add_argument('--weights', type=str)
     parser.add_argument('--resume', default=False, action='store_true')
     parser.add_argument('--device', type=str, default='cpu')
@@ -35,13 +37,12 @@ def main():
     args = parser.parse_args()
 
     # configure paths
-    args.env_config = os.path.join(args.output_dir, os.path.basename(args.env_config))
-    args.policy_config = os.path.join(args.output_dir, os.path.basename(args.policy_config))
-    args.train_config = os.path.join(args.output_dir, os.path.basename(args.train_config))
+    args.env_config = os.path.join(args.input_dir, os.path.basename(args.env_config))
+    args.policy_config = os.path.join(args.input_dir, os.path.basename(args.policy_config))
+    args.train_config = os.path.join(args.input_dir, os.path.basename(args.train_config))
 
-    # rl_weight_file = os.path.join(args.output_dir, 'rl_model.pth')
-    rl_weight_file = os.path.join(args.output_dir, 'not_use.pth')
-    last_rl_weight_file = os.path.join(args.output_dir, 'last_rl_model.pth')
+    rl_weight_file = os.path.join(args.input_dir, 'not_use.pth')
+    last_rl_weight_file = os.path.join(args.input_dir, 'last_rl_model.pth')
     weight_files = [rl_weight_file, last_rl_weight_file]
 
     # configure logging
@@ -92,7 +93,7 @@ def main():
             name=args.neptune_name
         )
         # ----------------------------  neptune params --------------------------------
-        params = {"output_dir": args.output_dir,
+        params = {"input_dir": args.input_dir,
                   "device": args.device
                   }
         run["parameters"] = params
@@ -105,7 +106,7 @@ def main():
         logging.info("Loading model file: %s" % w_file)
         robot.policy.model.load_state_dict(torch.load(w_file, map_location=device))  # load best model
         f = os.path.basename(w_file).split('.')[0]
-        video_tag = "traj"
+        video_tag = args.video_tag
         if args.use_dataset:
             test_datapath = train_config.get('dataset', 'test_datapath')
             stride = train_config.getint('dataset', 'stride')

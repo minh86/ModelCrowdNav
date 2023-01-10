@@ -268,7 +268,7 @@ class DataGen(object):
             return obs, None
 
     # create JointState from last real episode
-    def get_real_state(self, random_epi=False, max_human=-1, random_robot=True, replace_robot=False, test_case=test_case):
+    def get_real_state(self, random_epi=False, max_human=-1, random_robot=True, replace_robot=False, test_case=None):
         RobotInfo = namedtuple('RobotInfo', ['px', 'py', 'gx', 'gy'])
         px, py, gx, gy = None, None, None, None
         obs, start_end = self.pick_real_episode(random_epi=random_epi, max_human=max_human, test_case=test_case)
