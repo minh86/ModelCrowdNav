@@ -26,6 +26,9 @@ def main():
 
     args = parser.parse_args()
 
+    # configure logging
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s, %(levelname)s: %(message)s',
+                        datefmt="%Y-%m-%d %H:%M:%S")
     data = []
     # read input file: input_dir \t video_tag
     with open(args.input_file, 'r') as f:
@@ -42,9 +45,6 @@ def main():
         policy_config_file = os.path.join(input_dir, "policy.config")
         train_config_file = os.path.join(input_dir, "train.config")
 
-        # configure logging
-        logging.basicConfig(level=logging.INFO, format='%(asctime)s, %(levelname)s: %(message)s',
-                            datefmt="%Y-%m-%d %H:%M:%S")
         device = torch.device(args.device)
         logging.info('Using device: %s', device)
 
