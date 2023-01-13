@@ -283,7 +283,7 @@ class CrowdSim(gym.Env):
             self.robot.set(0, -self.circle_radius, 0, self.circle_radius, 0, 0, np.pi / 2)
             if self.case_counter[phase] >= 0:
                 np.random.seed(counter_offset[phase] + self.case_counter[phase])
-                logging.info("IMPORTANT SEED: %s" % str(counter_offset[phase] + self.case_counter[phase]))
+                # logging.info("IMPORTANT SEED: %s" % str(counter_offset[phase] + self.case_counter[phase]))
                 if phase in ['train', 'val']:
                     human_num = self.human_num if self.robot.policy.multiagent_training else 1
                     self.generate_random_human_position(human_num=human_num, rule=self.train_val_sim)
@@ -495,7 +495,7 @@ class CrowdSim(gym.Env):
                     for human_direction in human_directions:
                         ax.add_artist(human_direction)
             plt.legend([robot], ['Robot'], fontsize=16)
-            plt.savefig(output_file)
+            plt.savefig(output_file, format="pdf")
         elif mode == 'video':
             fig, ax = plt.subplots(figsize=(7, 7))
             ax.tick_params(labelsize=16)

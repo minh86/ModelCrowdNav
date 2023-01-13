@@ -13,10 +13,10 @@ def running_mean(x, n):
 def main():
     parser = argparse.ArgumentParser()
     # parser.add_argument('log_files', type=str, nargs='+')
-    parser.add_argument('--plot_sr', default=True, action='store_true')
+    parser.add_argument('--plot_sr', default=False, action='store_true')
     parser.add_argument('--plot_cr', default=False, action='store_true')
     parser.add_argument('--plot_time', default=False, action='store_true')
-    parser.add_argument('--plot_reward', default=False, action='store_true')
+    parser.add_argument('--plot_reward', default=True, action='store_true')
     parser.add_argument('--plot_train', default=True, action='store_true')
     parser.add_argument('--window_size', type=int, default=200)
     parser.add_argument('--output_dir', type=str, default='data/')
@@ -24,7 +24,7 @@ def main():
 
     # define the names of the models you want to plot and the longest episodes you want to show
     # models = ['Our5', 'Our10', 'Our15', 'SARL5', 'SARL10', 'SARL15']
-    human_num = 15
+    human_num = 5
     log_files = ["data/reinit%s.log"%human_num, "data/sarl%s.log"%human_num]
     models = ['Our%s'%human_num, 'SARL%s'%human_num]
     max_episodes = 10000
@@ -41,8 +41,11 @@ def main():
         log_type = r"TRAIN in episode"
         old_type = False
         train_pattern = r"Exp in mix has success rate: (?P<sr>[0-1].\d+), " \
-                        r"collision rate: (?P<cr>[0-1].\d+)"\
-                        # ", nav time: (?P<time>\d+.\d+), total reward: (?P<reward>[-+]?\d+.\d+)"
+                        r"collision rate: (?P<cr>[0-1].\d+)"
+        if args.plot_reward:
+            train_pattern = r"Exp in mix has success rate: (?P<sr>[0-1].\d+), " \
+                            r"collision rate: (?P<cr>[0-1].\d+)" \
+                            ", nav time: (?P<time>\d+.\d+), total reward: (?P<reward>[-+]?\d+.\d+)"
         for r in re.findall(log_type, log):
             old_type = True
             train_pattern = r"TRAIN in episode (?P<episode>\d+) has success rate: (?P<sr>[0-1].\d+), " \
@@ -72,8 +75,12 @@ def main():
                 train_episode.append(epi-1)
                 train_sr.append(float(r[0]))
                 train_cr.append(float(r[1]))
-                train_time.append(0)
-                train_reward.append(0)
+                if args.plot_reward:
+                    train_time.append(float(r[2]))
+                    train_reward.append(float(r[3]))
+                else:
+                    train_time.append(0)
+                    train_reward.append(0)
             train_episode = train_episode[:max_episodes]
             train_sr = train_sr[:max_episodes]
             train_cr = train_cr[:max_episodes]
@@ -143,8 +150,8 @@ def main():
     tag="train"
     if args.plot_reward:
         tag="reward"
-    output_file = os.path.join(args.output_dir, "plot_%s_%s.jpg" % (tag, human_num))
-    plt.savefig(output_file)
+    output_file = os.path.join(args.output_dir, "plot_%s_%s.pdf" % (tag, human_num))
+    plt.savefig(output_file, format="pdf")
 
 if __name__ == '__main__':
     main()
