@@ -287,7 +287,7 @@ class DataGen(object):
                 while min_dis < self.robot.radius * 4:  # check if robot collide with human at init state
                     if len(possible_case) == 0:  # cant find possible init position
                         return [], RobotInfo(None, None, None, None)
-                    set_robot = possible_case.pop(random.randrange(len(possible_case)))
+                    set_robot = possible_case.pop(0)
                     init_state = obs[0][:set_robot] + obs[0][set_robot + 1:]
                     # pad start, end position
                     [px, py, gx, gy] = [start_end[set_robot][i] for i in range(4)]
