@@ -33,6 +33,7 @@ def main():
                         datefmt="%Y-%m-%d %H:%M:%S")
     data = []
     env = None
+    env_sim = None
     # read input file: input_dir \t video_tag
     with open(args.input_file, 'r') as f:
         for line in f:
