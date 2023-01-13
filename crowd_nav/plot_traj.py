@@ -21,7 +21,7 @@ def main():
     parser.add_argument('--output_dir', type=str, default='data/sarl5')
     parser.add_argument('--device', type=str, default='cpu')
     parser.add_argument('--use_dataset', default=False, action='store_true')  # using dataset instead of simulator
-    parser.add_argument('--replace_robot', default=True, action='store_true')  # replace human as robot
+    parser.add_argument('--replace_robot', default=False, action='store_true')  # replace human as robot
     parser.add_argument('--cutting_point', type=int, default=-1)  # split point for train_val and test dataset
     parser.add_argument('--test_case', type=int, default=1)  # test case number
     parser.add_argument('--human_num', type=int, default=-1)
@@ -70,8 +70,9 @@ def main():
         explorer = Explorer(env, robot, device, gamma=0.9)
 
         # config env_sim
-        env_sim = gym.make('ModelCrowdSim-v0')
-        env_sim.configure(env_config)
+        if env_sim is None:
+            env_sim = gym.make('ModelCrowdSim-v0')
+            env_sim.configure(env_config)
         if not policy.multiagent_training:
             env_sim.human_num = 1
         env_sim.set_robot(robot)
@@ -124,7 +125,7 @@ def main():
                     returnRate=True,
                     updateMemory=False,
                     test_case=args.test_case,
-                    replace_robot=args.replace_robot
+                    replace_robot=args.replace_robot,
                 )
                 traj_file = os.path.join(args.output_dir, "%s_%s_%s_%s.pdf" % (f, video_tag, str(args.test_case),str(int(success_rate))))
                 explorer_sim.env.render("traj", traj_file)
