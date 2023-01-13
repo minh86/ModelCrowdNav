@@ -134,18 +134,18 @@ def main():
                 returnRate=True,
                 updateMemory=False,
             )
-            explorer_sim.env.render("video", video_file)
+            # explorer_sim.env.render("video", video_file)
         else:
             cumulative_rewards, success_rate, collision_rate, timeout_rate = explorer.run_k_episodes(
                 env.case_size['test'], 'test')
-            explorer.env.render("video", video_file)
+            # explorer.env.render("video", video_file)
 
         if args.neptune:
             run["test_%s/success_rate" % f].log(success_rate)  # log to neptune
             run["test_%s/collision_rate" % f].log(collision_rate)  # log to neptune
             run["test_%s/timeout_rate" % f].log(timeout_rate)  # log to neptune
-            Resize_GIF(video_file)
-            run[video_tag + "/" + "%s.gif" %(f)].upload(video_file)  # upload to neptune
+            # Resize_GIF(video_file)
+            # run[video_tag + "/" + "%s.gif" %(f)].upload(video_file)  # upload to neptune
     if args.neptune:
         run.stop()
 

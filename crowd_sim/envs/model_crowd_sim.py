@@ -465,8 +465,8 @@ class ModelCrowdSim(gym.Env):
         elif mode == 'traj':
             fig, ax = plt.subplots(figsize=(7, 7))
             ax.tick_params(labelsize=16)
-            # ax.set_xlim(-12, 12)
-            # ax.set_ylim(-12, 12)
+            ax.set_xlim(-10, 10)
+            ax.set_ylim(-10, 10)
             ax.set_xlabel('x(m)', fontsize=16)
             ax.set_ylabel('y(m)', fontsize=16)
 
@@ -474,10 +474,10 @@ class ModelCrowdSim(gym.Env):
             human_positions = [[state[1][j].position for j in range(len(state[1]))] for state in self.states]
 
             # set x, y limit
-            bound = int(
-                max(np.absolute([robot_positions[0][0], robot_positions[0][1], self.robot.gx, self.robot.gy]))) + 3
-            ax.set_xlim(-bound, bound)
-            ax.set_ylim(-bound, bound)
+            # bound = int(
+            #     max(np.absolute([robot_positions[0][0], robot_positions[0][1], self.robot.gx, self.robot.gy]))) + 3
+            # ax.set_xlim(-bound, bound)
+            # ax.set_ylim(-bound, bound)
 
             for k in range(len(self.states)):
                 if k % 4 == 0 or k == len(self.states) - 1:
@@ -493,7 +493,7 @@ class ModelCrowdSim(gym.Env):
                     agents = humans + [robot]
                     times = [plt.text(agents[i].center[0] - x_offset, agents[i].center[1] - y_offset,
                                       '{:.1f}'.format(global_time),
-                                      color='black', fontsize=14) for i in range(len(agents))]
+                                      color='black', fontsize=10) for i in range(len(agents))]
                     for time in times:
                         ax.add_artist(time)
                 if k != 0:
