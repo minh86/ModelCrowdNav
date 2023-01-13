@@ -1,3 +1,4 @@
+import gc
 import logging
 import argparse
 import configparser
@@ -18,93 +19,83 @@ from crowd_nav.utils.datagen import DataGen
 
 def main():
     parser = argparse.ArgumentParser('Parse configuration file')
-    parser.add_argument('--env_config', type=str, default='configs_test/env.config')
-    parser.add_argument('--policy', type=str, default='sarl')
-    parser.add_argument('--policy_config', type=str, default='configs_test/policy.config')
-    parser.add_argument('--train_config', type=str, default='configs_test/train.config')
-    parser.add_argument('--output_dir', type=str, default='data/sarl5')
-    parser.add_argument('--weights', type=str)
-    parser.add_argument('--resume', default=False, action='store_true')
+    parser.add_argument('--input_file', type=str, default='data/sarl5/list.txt')
+    parser.add_argument('--output_file', type=str, default='data/sarl5/test.txt')
     parser.add_argument('--device', type=str, default='cpu')
-    parser.add_argument('--neptune', default=False, action='store_true')
-    parser.add_argument('--neptune_name', type=str, default='Untitled')
     parser.add_argument('--use_dataset', default=False, action='store_true')  # using dataset instead of simulator
+    parser.add_argument('--replace_robot', default=False, action='store_true')  # replace human as robot
     parser.add_argument('--cutting_point', type=int, default=-1)  # split point for train_val and test dataset
 
     args = parser.parse_args()
 
-    # configure paths
-    args.env_config = os.path.join(args.output_dir, os.path.basename(args.env_config))
-    args.policy_config = os.path.join(args.output_dir, os.path.basename(args.policy_config))
-    args.train_config = os.path.join(args.output_dir, os.path.basename(args.train_config))
-
-    rl_weight_file = os.path.join(args.output_dir, 'rl_model.pth')
-    last_rl_weight_file = os.path.join(args.output_dir, 'last_rl_model.pth')
-    weight_files = [rl_weight_file, last_rl_weight_file]
-
     # configure logging
     logging.basicConfig(level=logging.INFO, format='%(asctime)s, %(levelname)s: %(message)s',
                         datefmt="%Y-%m-%d %H:%M:%S")
-    device = torch.device(args.device)
-    logging.info('Using device: %s', device)
+    data = []
+    env = None
+    env_sim = None
+    # read input file: input_dir \t video_tag
+    out_file = open(args.output_file, "w")
+    with open(args.input_file, 'r') as f:
+        for line in f:
+            line = line.strip().split()
+            data.append(line)
+    for case in data:
+        logging.info("================= WORKING IN %s =================" % case[0])
+        gc.collect()
+        input_dir = case[0]
+        # configure paths
+        env_config_file = os.path.join(input_dir, "env.config")
+        policy_config_file = os.path.join(input_dir, "policy.config")
+        train_config_file = os.path.join(input_dir, "train.config")
 
-    # configure policy
-    policy = policy_factory[args.policy]()
-    policy_config = configparser.RawConfigParser()
-    policy_config.read(args.policy_config)
-    policy.configure(policy_config)
-    policy.set_device(device)
+        device = torch.device(args.device)
+        logging.info('Using device: %s', device)
 
-    # configure environment
-    env_config = configparser.RawConfigParser()
-    env_config.read(args.env_config)
-    env = gym.make('CrowdSim-v0')
-    env.configure(env_config)
-    robot = Robot(env_config, 'robot')
-    robot.set_policy(policy)
-    env.set_robot(robot)
-    explorer = Explorer(env, robot, device, gamma=0.9)
+        # configure policy
+        policy = policy_factory['sarl']()
+        policy_config = configparser.RawConfigParser()
+        policy_config.read(policy_config_file)
+        policy.configure(policy_config)
+        policy.set_device(device)
 
-    # config env_sim
-    env_sim = gym.make('ModelCrowdSim-v0')
-    env_sim.configure(env_config)
-    if not policy.multiagent_training:
-        env_sim.human_num = 1
-    env_sim.set_robot(robot)
-    env_sim.device = device
-    explorer_sim = Explorer(env_sim, robot, device, None, policy.gamma, target_policy=policy)
+        # configure environment
+        env_config = configparser.RawConfigParser()
+        env_config.read(env_config_file)
+        if env is None:
+            env = gym.make('CrowdSim-v0')
+            env.configure(env_config)
+        robot = Robot(env_config, 'robot')
+        robot.set_policy(policy)
+        env.set_robot(robot)
+        explorer = Explorer(env, robot, device, gamma=0.9)
 
-    # read training parameters
-    if args.train_config is None:
-        parser.error('Train config has to be specified for a trainable network')
-    train_config = configparser.RawConfigParser()
-    train_config.read(args.train_config)
-    api_token = train_config.get('neptune', 'api_token')
-    neptune_project = train_config.get('neptune', 'neptune_project')
+        # config env_sim
+        if env_sim is None:
+            env_sim = gym.make('ModelCrowdSim-v0')
+            env_sim.configure(env_config)
+        if not policy.multiagent_training:
+            env_sim.human_num = 1
+        env_sim.set_robot(robot)
+        env_sim.device = device
+        explorer_sim = Explorer(env_sim, robot, device, None, policy.gamma, target_policy=policy)
 
-    # ============== neptune things  ================
-    if args.neptune:
-        run = neptune.init_run(
-            project=neptune_project,
-            api_token=api_token,
-            name=args.neptune_name
-        )
-        # ----------------------------  neptune params --------------------------------
-        params = {"output_dir": args.output_dir,
-                  "device": args.device
-                  }
-        run["parameters"] = params
-        run["config/env"].upload(args.env_config)
-        run["config/policy"].upload(args.policy_config)
-        run["config/train"].upload(args.train_config)
-    for w_file in weight_files:
-        if not os.path.exists(w_file):
-            continue
+        # read training parameters
+        if train_config_file is None:
+            parser.error('Train config has to be specified for a trainable network')
+        train_config = configparser.RawConfigParser()
+        train_config.read(train_config_file)
+
+        rl_weight_file = os.path.join(input_dir, 'rl_model.pth')
+        last_rl_weight_file = os.path.join(input_dir, 'last_rl_model.pth')
+
+        if os.path.exists(last_rl_weight_file):
+            w_file = last_rl_weight_file
+        else:
+            w_file = rl_weight_file
+
         logging.info("Loading model file: %s" % w_file)
         robot.policy.model.load_state_dict(torch.load(w_file, map_location=device))  # load best model
-        f = os.path.basename(w_file).split('.')[0]
-        video_tag = "finaltest_"
-        video_file = os.path.join(args.output_dir, "%s_%s.gif" % (video_tag, f))
         if args.use_dataset:
             test_datapath = train_config.get('dataset', 'test_datapath')
             stride = train_config.getint('dataset', 'stride')
@@ -118,37 +109,31 @@ def main():
 
             data_generator = DataGen(None, robot, env_sim, policy)
             test_raw_memory, _ = GetRealData(dataset_file=test_datapath, phase="test", stride=stride,
-                                             windows_size=windows_size, dataset_slice=test_sl)
+                                             windows_size=windows_size, dataset_slice=test_sl, Store_for_world_fn=StoreAction)
             data_generator.raw_memory = test_raw_memory
             data_generator.counter = 0
-            cumulative_rewards, success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explore_in_mix(
-                env.case_size['test'],  # test size for crowds_students003.ndjson
-                # max_human=max_human,
+            cumulative_rewards, success_rate, collision_rate, timeout_rate, nav_time = data_generator.gen_data_from_explore_in_mix(
+                env.case_size['test'],
                 random_robot=False,
                 add_sim=False,
                 random_epi=False,
                 phase='test',
-                # render_path=args.output_dir,
                 view_distance=view_distance,
                 view_human=view_human,
                 returnRate=True,
                 updateMemory=False,
+                replace_robot=args.replace_robot,
+                returnNav=True
             )
-            # explorer_sim.env.render("video", video_file)
+            out_file.write("--- %s ---\treward: %s\tsuccess rate: %s\tcollision_rate:%s\ttimeout rate:%s\tnavigation "
+                           "time:%s\n" %
+                           (case[1], cumulative_rewards, success_rate, collision_rate, timeout_rate, nav_time))
         else:
-            cumulative_rewards, success_rate, collision_rate, timeout_rate = explorer.run_k_episodes(
-                env.case_size['test'], 'test')
-            # explorer.env.render("video", video_file)
-
-        if args.neptune:
-            run["test_%s/success_rate" % f].log(success_rate)  # log to neptune
-            run["test_%s/collision_rate" % f].log(collision_rate)  # log to neptune
-            run["test_%s/timeout_rate" % f].log(timeout_rate)  # log to neptune
-            # Resize_GIF(video_file)
-            # run[video_tag + "/" + "%s.gif" %(f)].upload(video_file)  # upload to neptune
-    if args.neptune:
-        run.stop()
-
+            cumulative_rewards, success_rate, collision_rate, timeout_rate, nav_time = explorer.run_k_episodes(
+                env.case_size['test'], 'test', returnNav=True)
+            out_file.write("--- %s ---\treward: %s\tsuccess rate: %s\tcollision_rate:%s\ttimeout rate:%s\tnavigation "
+                           "time:%s\n" %
+                           (case[1], cumulative_rewards, success_rate, collision_rate, timeout_rate, nav_time))
 
 if __name__ == '__main__':
     main()

@@ -1,6 +1,8 @@
 import logging
 import copy
 import torch
+from tqdm import tqdm
+
 from crowd_sim.envs.utils.info import *
 from crowd_sim.envs.utils.action import ActionRot, ActionXY
 
@@ -29,7 +31,7 @@ class Explorer(object):
 
     # @profile
     def run_k_episodes(self, k, phase, update_memory=False, imitation_learning=False, episode=None,
-                       print_failure=False,update_raw_ob=False, stay=False, returnRate=True, test_case=None):
+                       print_failure=False,update_raw_ob=False, stay=False, returnRate=True, test_case=None, returnNav=False):
         self.robot.policy.set_phase(phase)
         success_times = []
         collision_times = []
@@ -42,7 +44,7 @@ class Explorer(object):
         cumulative_rewards = []
         collision_cases = []
         timeout_cases = []
-        for i in range(k):
+        for i in tqdm(range(k)):
             ob = self.env.reset(phase, test_case=test_case)
             done = False
             states = []
@@ -119,6 +121,8 @@ class Explorer(object):
         if print_failure:
             logging.info('Collision cases: ' + ' '.join([str(x) for x in collision_cases]))
             logging.info('Timeout cases: ' + ' '.join([str(x) for x in timeout_cases]))
+        if returnRate and returnNav:
+            return average(cumulative_rewards), success_rate, collision_rate, timeout_rate, avg_nav_time
         if returnRate:
             return average(cumulative_rewards), success_rate, collision_rate, timeout_rate
         else:

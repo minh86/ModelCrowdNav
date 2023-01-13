@@ -379,7 +379,7 @@ class DataGen(object):
     def gen_data_from_explore_in_mix(self, num_sample, phase="train", min_end=1, static_end=-1, max_human=-1, imitation_learning=False,
                                      add_sim=True, stay=False, random_epi=True, random_robot=True, render_path=None,
                                      view_distance=-1, view_human=-1, returnRate=False, updateMemory=True, replace_robot=False,
-                                     sgan_genfile=None, test_case=None):
+                                     sgan_genfile=None, test_case=None, returnNav=False):
         '''
         min_end: the minimum length of real data
         max_end: the static length of real data
@@ -511,6 +511,8 @@ class DataGen(object):
             num_step = sum(success_times + collision_times + timeout_times) / self.robot.time_step
             logging.info('Frequency of being in danger: %.2f and average min separate distance in danger: %.2f',
                          too_close / num_step, np.average(min_dist))
+        if returnRate and returnNav:
+            return np.average(cumulative_rewards), success_rate, collision_rate, timeout_rate, avg_nav_time
         if returnRate:
             return np.average(cumulative_rewards), success_rate, collision_rate, timeout_rate
         return np.average(cumulative_rewards), reach_goal, collision, (num_sample - reach_goal - collision)
