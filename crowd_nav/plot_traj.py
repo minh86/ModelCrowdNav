@@ -21,8 +21,10 @@ def main():
     parser.add_argument('--output_dir', type=str, default='data/sarl5')
     parser.add_argument('--device', type=str, default='cpu')
     parser.add_argument('--use_dataset', default=False, action='store_true')  # using dataset instead of simulator
+    parser.add_argument('--replace_robot', default=True, action='store_true')  # replace human as robot
     parser.add_argument('--cutting_point', type=int, default=-1)  # split point for train_val and test dataset
-    parser.add_argument('--test_case', type=int, default=0)  # test case number
+    parser.add_argument('--test_case', type=int, default=1)  # test case number
+    parser.add_argument('--human_num', type=int, default=-1)
 
     args = parser.parse_args()
 
@@ -93,6 +95,7 @@ def main():
             robot.policy.model.load_state_dict(torch.load(w_file, map_location=device))  # load best model
             f = os.path.basename(w_file).split('.')[0]
             if args.use_dataset:
+                # env.human_num = args.human_num
                 test_datapath = train_config.get('dataset', 'test_datapath')
                 stride = train_config.getint('dataset', 'stride')
                 windows_size = train_config.getint('dataset', 'windows_size')
@@ -105,7 +108,7 @@ def main():
 
                 data_generator = DataGen(None, robot, env_sim, policy)
                 test_raw_memory, _ = GetRealData(dataset_file=test_datapath, phase="test", stride=stride,
-                                                 windows_size=windows_size, dataset_slice=test_sl)
+                                                 windows_size=windows_size, dataset_slice=test_sl, Store_for_world_fn=StoreAction)
                 data_generator.raw_memory = test_raw_memory
                 data_generator.counter = 0
                 cumulative_rewards, success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explore_in_mix(
@@ -120,6 +123,8 @@ def main():
                     view_human=view_human,
                     returnRate=True,
                     updateMemory=False,
+                    test_case=args.test_case,
+                    replace_robot=args.replace_robot
                 )
                 traj_file = os.path.join(args.output_dir, "%s_%s_%s_%s.pdf" % (f, video_tag, str(args.test_case),str(int(success_rate))))
                 explorer_sim.env.render("traj", traj_file)

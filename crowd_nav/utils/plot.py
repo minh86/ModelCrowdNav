@@ -17,6 +17,8 @@ def main():
     parser.add_argument('--plot_cr', default=False, action='store_true')
     parser.add_argument('--plot_time', default=False, action='store_true')
     parser.add_argument('--plot_reward', default=True, action='store_true')
+
+
     parser.add_argument('--plot_train', default=True, action='store_true')
     parser.add_argument('--window_size', type=int, default=200)
     parser.add_argument('--output_dir', type=str, default='data/')
@@ -24,7 +26,7 @@ def main():
 
     # define the names of the models you want to plot and the longest episodes you want to show
     # models = ['Our5', 'Our10', 'Our15', 'SARL5', 'SARL10', 'SARL15']
-    human_num = 5
+    human_num = "5zara"
     log_files = ["data/reinit%s.log"%human_num, "data/sarl%s.log"%human_num]
     models = ['Our%s'%human_num, 'SARL%s'%human_num]
     max_episodes = 10000

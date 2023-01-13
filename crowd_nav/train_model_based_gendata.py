@@ -253,14 +253,14 @@ else:  # -----------  Using trajnet++ dataset  ------------
     else:
         # load data for validation and testing
         val_raw_memory, _ = GetRealData(dataset_file=val_datapath, phase="val",
-                                        stride=stride, windows_size=windows_size, dataset_slice=train_sl)
+                                        stride=stride, windows_size=windows_size, dataset_slice=train_sl, Store_for_world_fn=StoreAction)
     # load data for training world model (padding stay)
     # _, rawob = GetRealData(dataset_file=train_datapath, phase=phase, stride=stride,
     #                        windows_size=windows_size,slide=train_sl)
     train_raw_memory, rawob = GetRealData(dataset_file=train_datapath, phase=phase, stride=stride,
-                                      windows_size=windows_size, dataset_slice=train_sl)
+                                      windows_size=windows_size, dataset_slice=train_sl, Store_for_world_fn=StoreAction)
     test_raw_memory, _ = GetRealData(dataset_file=test_datapath, phase="test", stride=stride, windows_size=windows_size,
-                                     dataset_slice=test_sl)
+                                     dataset_slice=test_sl, Store_for_world_fn=StoreAction)
     trainer_sim.memory = rawob
     data_generator.raw_memory = train_raw_memory
 
