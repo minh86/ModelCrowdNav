@@ -33,6 +33,7 @@ def main():
     parser.add_argument('--neptune', default=False, action='store_true')
     parser.add_argument('--neptune_name', type=str, default='Untitled')
     parser.add_argument('--human_num', type=int, default=5)
+    parser.add_argument('--start_epi', type=int, default=0)
 
     args = parser.parse_args()
 
@@ -186,7 +187,7 @@ def main():
         robot.policy.set_epsilon(epsilon_end)
         explorer.run_k_episodes(100, 'train', update_memory=True, episode=0)
         logging.info('Experience set size: %d/%d', len(memory), memory.capacity)
-    episode = 0
+    episode = args.start_epi
     while episode < train_episodes:
         if args.resume:
             epsilon = epsilon_end
@@ -199,19 +200,19 @@ def main():
         if args.neptune:
             run["Current Episode"].log("%d / %d" % (episode, train_episodes))  # log to neptune
 
-        # evaluate the model
-        if episode % evaluation_interval == 0:
-            _, success_rate, collision_rate, timeout_rate=explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
-            if args.neptune:
-                run["val/success_rate"].log(success_rate)  # log to neptune
-                run["val/collision_rate"].log(collision_rate)  # log to neptune
-                run["val/timeout_rate"].log(timeout_rate)  # log to neptune
-            video_tag = "val_vi"
-            explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
-            if args.neptune:
-                Resize_GIF(os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
-                run[video_tag + "/" + video_tag + "_ep" + str(episode) + ".gif"].upload(
-                    os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))  # upload to neptune
+        # # evaluate the model
+        # if episode % evaluation_interval == 0:
+        #     _, success_rate, collision_rate, timeout_rate=explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
+        #     if args.neptune:
+        #         run["val/success_rate"].log(success_rate)  # log to neptune
+        #         run["val/collision_rate"].log(collision_rate)  # log to neptune
+        #         run["val/timeout_rate"].log(timeout_rate)  # log to neptune
+        #     video_tag = "val_vi"
+        #     explorer.env.render("video", os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
+        #     if args.neptune:
+        #         Resize_GIF(os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))
+        #         run[video_tag + "/" + video_tag + "_ep" + str(episode) + ".gif"].upload(
+        #             os.path.join(args.output_dir, video_tag + "_ep" + str(episode) + ".gif"))  # upload to neptune
 
         # sample k episodes into memory and optimize over the generated memory
         _, success, collision, timeout = explorer.run_k_episodes(sample_episodes, 'train', update_memory=True, episode=episode, returnRate=False)
