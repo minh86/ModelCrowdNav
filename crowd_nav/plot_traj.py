@@ -115,7 +115,7 @@ def main():
                                                  windows_size=windows_size, dataset_slice=test_sl, Store_for_world_fn=StoreAction)
                 data_generator.raw_memory = test_raw_memory
                 data_generator.counter = 0
-                if args.start_case <=0 or args.end_case <=0:
+                if args.start_case <0 or args.end_case <0:
                     args.start_case = args.test_case
                     args.end_case = args.test_case+1
                 for test_case in range(args.start_case, args.end_case):
