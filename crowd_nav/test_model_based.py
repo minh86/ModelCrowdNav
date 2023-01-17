@@ -112,28 +112,38 @@ def main():
                                              windows_size=windows_size, dataset_slice=test_sl, Store_for_world_fn=StoreAction)
             data_generator.raw_memory = test_raw_memory
             data_generator.counter = 0
-            cumulative_rewards, success_rate, collision_rate, timeout_rate, nav_time = data_generator.gen_data_from_explore_in_mix(
-                env.case_size['test'],
-                random_robot=False,
-                add_sim=False,
-                random_epi=False,
-                phase='test',
-                view_distance=view_distance,
-                view_human=view_human,
-                returnRate=True,
-                updateMemory=False,
-                replace_robot=args.replace_robot,
-                returnNav=True
-            )
+            all_results = []
+            for test_case in range(0, env.case_size['test']):
+                all_results.append( data_generator.gen_data_from_explore_in_mix(
+                    1,
+                    random_robot=False,
+                    add_sim=False,
+                    random_epi=False,
+                    phase='test',
+                    view_distance=view_distance,
+                    view_human=view_human,
+                    returnRate=True,
+                    updateMemory=False,
+                    replace_robot=args.replace_robot,
+                    returnNav=True,
+                    test_case=test_case
+                ))
+            all_results = np.array(all_results)
+            statistic = np.nanmean(all_results, axis=0)
             out_file.write("--- %s ---\treward: %s\tsuccess rate: %s\tcollision_rate:%s\ttimeout rate:%s\tnavigation "
                            "time:%s\n" %
-                           (case[1], cumulative_rewards, success_rate, collision_rate, timeout_rate, nav_time))
+                           (case[1], statistic[0], statistic[1], statistic[2], statistic[3], statistic[4]))
         else:
-            cumulative_rewards, success_rate, collision_rate, timeout_rate, nav_time = explorer.run_k_episodes(
-                env.case_size['test'], 'test', returnNav=True)
+            all_results = []
+            for test_case in range(0, env.case_size['test']):
+                all_results.append (explorer.run_k_episodes(
+                    1, 'test', returnNav=True, test_case=test_case))
+
+            all_results = np.array(all_results)
+            statistic = np.nanmean(all_results, axis=0)
             out_file.write("--- %s ---\treward: %s\tsuccess rate: %s\tcollision_rate:%s\ttimeout rate:%s\tnavigation "
                            "time:%s\n" %
-                           (case[1], cumulative_rewards, success_rate, collision_rate, timeout_rate, nav_time))
+                           (case[1], statistic[0], statistic[1], statistic[2], statistic[3], statistic[4]))
 
 if __name__ == '__main__':
     main()

@@ -137,17 +137,27 @@ def main():
                     traj_file = os.path.join(args.output_dir, "%s_%s_%s_%s.pdf" % (f, video_tag, str(test_case),str(int(success_rate))))
                     explorer_sim.env.render("traj", traj_file)
                     logging.info("Saved traj plot at: %s" % traj_file)
+
+                    video_file = os.path.join(args.output_dir,
+                                              "%s_%s_%s_%s.gif" % (
+                                              f, video_tag, str(test_case), str(int(success_rate))))
+                    explorer_sim.env.render("video", video_file)
             else:
                 if args.start_case <=0 or args.end_case <=0:
                     args.start_case = args.test_case
                     args.end_case = args.test_case+1
                 for test_case in range(args.start_case, args.end_case):
                     cumulative_rewards, success_rate, collision_rate, timeout_rate = explorer.run_k_episodes(
-                        1, 'test', test_case=args.test_case)
+                        1, 'test', test_case=test_case)
                     traj_file = os.path.join(args.output_dir,
                                              "%s_%s_%s_%s.pdf" % (f, video_tag, str(test_case), str(int(success_rate))))
                     explorer.env.render("traj", traj_file)
                     logging.info("Saved traj plot at: %s" % traj_file)
+
+                    video_file = os.path.join(args.output_dir,
+                                              "%s_%s_%s_%s.gif" % (
+                                              f, video_tag, str(test_case), str(int(success_rate))))
+                    explorer_sim.env.render("video", video_file)
 
 if __name__ == '__main__':
     main()

@@ -1,5 +1,7 @@
 import logging
 import copy
+
+import numpy as np
 import torch
 from tqdm import tqdm
 
@@ -44,6 +46,7 @@ class Explorer(object):
         cumulative_rewards = []
         collision_cases = []
         timeout_cases = []
+        avg_nav_time = np.NaN
         for i in tqdm(range(k)):
             ob = self.env.reset(phase, test_case=test_case)
             done = False
