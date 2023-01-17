@@ -460,8 +460,8 @@ class CrowdSim(gym.Env):
             ax.tick_params(labelsize=16)
             ax.set_xlim(-5, 5)
             ax.set_ylim(-5, 5)
-            ax.set_xlabel('x(m)', fontsize=16)
-            ax.set_ylabel('y(m)', fontsize=16)
+            ax.set_xlabel('x[m]', fontsize=16)
+            ax.set_ylabel('y[m]', fontsize=16)
 
             robot_positions = [self.states[i][0].position for i in range(len(self.states))]
             human_positions = [[self.states[i][1][j].position for j in range(len(self.humans))]

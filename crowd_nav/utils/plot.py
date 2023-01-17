@@ -26,9 +26,28 @@ def main():
 
     # define the names of the models you want to plot and the longest episodes you want to show
     # models = ['Our5', 'Our10', 'Our15', 'SARL5', 'SARL10', 'SARL15']
-    human_num = "5zara"
-    log_files = ["data/reinit%s.log"%human_num, "data/sarl%s.log"%human_num]
-    models = ['Our%s'%human_num, 'SARL%s'%human_num]
+    # human_num = "5zara"
+    # log_files = ["data/reinit%s.log"%human_num, "data/sarl%s.log"%human_num]
+    # models = ['Our%s'%human_num, 'SARL%s'%human_num]
+
+    log_files = [
+        "data/reinit5.log", "data/reinit10.log", "data/reinit15.log",
+         "data/sarl5.log", "data/sarl10.log", "data/sarl15.log",
+    ]
+    models = [
+        "Proposed_5", "Proposed_10", "Proposed_15",
+        "SARL_5", "SARL_10", "SARL_15",
+    ]
+
+    log_files = [
+        "data/reinit5.log",
+        "data/sarl5.log"
+    ]
+    models = [
+        "Proposed_5",
+        "SARL_5"
+    ]
+
     max_episodes = 10000
 
     ax1 = ax2 = ax3 = ax4 = None
@@ -152,7 +171,7 @@ def main():
     tag="train"
     if args.plot_reward:
         tag="reward"
-    output_file = os.path.join(args.output_dir, "plot_%s_%s.pdf" % (tag, human_num))
+    output_file = os.path.join(args.output_dir, "plot_%s.pdf" % (tag))
     plt.savefig(output_file, format="pdf")
 
 if __name__ == '__main__':
