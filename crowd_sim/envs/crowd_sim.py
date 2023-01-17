@@ -572,7 +572,7 @@ class CrowdSim(gym.Env):
                                                       arrowstyle=arrow_style) for orientation in orientations]
                     for arrow in arrows:
                         ax.add_artist(arrow)
-                    if self.attention_weights is not None:
+                    if self.attention_weights is not None and render_weight:
                         human.set_color(str(self.attention_weights[frame_num][i]))
                         attention_scores[i].set_text('human {}: {:.2f}'.format(i, self.attention_weights[frame_num][i]))
 
