@@ -134,7 +134,7 @@ def main():
                         test_case=test_case,
                         replace_robot=args.replace_robot,
                     )
-                    traj_file = os.path.join(args.output_dir, "%s_%s_%s_%s.pdf" % (f, video_tag, str(args.test_case),str(int(success_rate))))
+                    traj_file = os.path.join(args.output_dir, "%s_%s_%s_%s.pdf" % (f, video_tag, str(test_case),str(int(success_rate))))
                     explorer_sim.env.render("traj", traj_file)
                     logging.info("Saved traj plot at: %s" % traj_file)
             else:
@@ -145,7 +145,7 @@ def main():
                     cumulative_rewards, success_rate, collision_rate, timeout_rate = explorer.run_k_episodes(
                         1, 'test', test_case=args.test_case)
                     traj_file = os.path.join(args.output_dir,
-                                             "%s_%s_%s_%s.pdf" % (f, video_tag, str(args.test_case), str(int(success_rate))))
+                                             "%s_%s_%s_%s.pdf" % (f, video_tag, str(test_case), str(int(success_rate))))
                     explorer.env.render("traj", traj_file)
                     logging.info("Saved traj plot at: %s" % traj_file)
 
