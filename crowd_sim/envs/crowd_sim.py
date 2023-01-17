@@ -433,7 +433,7 @@ class CrowdSim(gym.Env):
         return ob, reward, done, info
     
 
-    def render(self, mode='human', output_file=None):
+    def render(self, mode='human', output_file=None, render_weight=False):
         from matplotlib import animation
         import matplotlib.pyplot as plt
         plt.rcParams['animation.ffmpeg_path'] = '/usr/bin/ffmpeg'
@@ -499,8 +499,8 @@ class CrowdSim(gym.Env):
         elif mode == 'video':
             fig, ax = plt.subplots(figsize=(7, 7))
             ax.tick_params(labelsize=16)
-            ax.set_xlim(-12, 12)
-            ax.set_ylim(-12, 12)
+            ax.set_xlim(-6, 6)
+            ax.set_ylim(-6, 6)
             ax.set_xlabel('x(m)', fontsize=16)
             ax.set_ylabel('y(m)', fontsize=16)
 
@@ -527,7 +527,7 @@ class CrowdSim(gym.Env):
             ax.add_artist(time)
 
             # compute attention scores
-            if self.attention_weights is not None:
+            if self.attention_weights is not None and render_weight:
                 attention_scores = [
                     plt.text(-5.5, 5 - 0.5 * i, 'Human {}: {:.2f}'.format(i + 1, self.attention_weights[0][i]),
                              fontsize=16) for i in range(len(self.humans))]
