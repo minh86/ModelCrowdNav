@@ -157,7 +157,7 @@ def main():
                     video_file = os.path.join(args.output_dir,
                                               "%s_%s_%s_%s.gif" % (
                                               f, video_tag, str(test_case), str(int(success_rate))))
-                    explorer_sim.env.render("video", video_file)
+                    explorer.env.render("video", video_file)
 
 if __name__ == '__main__':
     main()
