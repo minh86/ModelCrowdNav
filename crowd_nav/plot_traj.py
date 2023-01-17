@@ -24,6 +24,8 @@ def main():
     parser.add_argument('--replace_robot', default=False, action='store_true')  # replace human as robot
     parser.add_argument('--cutting_point', type=int, default=-1)  # split point for train_val and test dataset
     parser.add_argument('--test_case', type=int, default=1)  # test case number
+    parser.add_argument('--start_case', type=int, default=-1)  # test case number
+    parser.add_argument('--end_case', type=int, default=-1)  # test case number
     parser.add_argument('--human_num', type=int, default=-1)
 
     args = parser.parse_args()
@@ -113,31 +115,39 @@ def main():
                                                  windows_size=windows_size, dataset_slice=test_sl, Store_for_world_fn=StoreAction)
                 data_generator.raw_memory = test_raw_memory
                 data_generator.counter = 0
-                cumulative_rewards, success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explore_in_mix(
-                    1,  # test size for crowds_students003.ndjson
-                    # max_human=max_human,
-                    random_robot=False,
-                    add_sim=False,
-                    random_epi=False,
-                    phase='test',
-                    # render_path=args.output_dir,
-                    view_distance=view_distance,
-                    view_human=view_human,
-                    returnRate=True,
-                    updateMemory=False,
-                    test_case=args.test_case,
-                    replace_robot=args.replace_robot,
-                )
-                traj_file = os.path.join(args.output_dir, "%s_%s_%s_%s.pdf" % (f, video_tag, str(args.test_case),str(int(success_rate))))
-                explorer_sim.env.render("traj", traj_file)
-                logging.info("Saved traj plot at: %s" % traj_file)
+                if args.start_case <=0 or args.end_case <=0:
+                    args.start_case = args.test_case
+                    args.end_case = args.test_case+1
+                for test_case in range(args.start_case, args.end_case):
+                    cumulative_rewards, success_rate, collision_rate, timeout_rate = data_generator.gen_data_from_explore_in_mix(
+                        1,  # test size for crowds_students003.ndjson
+                        # max_human=max_human,
+                        random_robot=False,
+                        add_sim=False,
+                        random_epi=False,
+                        phase='test',
+                        # render_path=args.output_dir,
+                        view_distance=view_distance,
+                        view_human=view_human,
+                        returnRate=True,
+                        updateMemory=False,
+                        test_case=test_case,
+                        replace_robot=args.replace_robot,
+                    )
+                    traj_file = os.path.join(args.output_dir, "%s_%s_%s_%s.pdf" % (f, video_tag, str(args.test_case),str(int(success_rate))))
+                    explorer_sim.env.render("traj", traj_file)
+                    logging.info("Saved traj plot at: %s" % traj_file)
             else:
-                cumulative_rewards, success_rate, collision_rate, timeout_rate = explorer.run_k_episodes(
-                    1, 'test', test_case=args.test_case)
-                traj_file = os.path.join(args.output_dir,
-                                         "%s_%s_%s_%s.pdf" % (f, video_tag, str(args.test_case), str(int(success_rate))))
-                explorer.env.render("traj", traj_file)
-                logging.info("Saved traj plot at: %s" % traj_file)
+                if args.start_case <=0 or args.end_case <=0:
+                    args.start_case = args.test_case
+                    args.end_case = args.test_case+1
+                for test_case in range(args.start_case, args.end_case):
+                    cumulative_rewards, success_rate, collision_rate, timeout_rate = explorer.run_k_episodes(
+                        1, 'test', test_case=args.test_case)
+                    traj_file = os.path.join(args.output_dir,
+                                             "%s_%s_%s_%s.pdf" % (f, video_tag, str(args.test_case), str(int(success_rate))))
+                    explorer.env.render("traj", traj_file)
+                    logging.info("Saved traj plot at: %s" % traj_file)
 
 if __name__ == '__main__':
     main()

@@ -13,10 +13,10 @@ def running_mean(x, n):
 def main():
     parser = argparse.ArgumentParser()
     # parser.add_argument('log_files', type=str, nargs='+')
-    parser.add_argument('--plot_sr', default=False, action='store_true')
+    parser.add_argument('--plot_sr', default=True, action='store_true')
     parser.add_argument('--plot_cr', default=False, action='store_true')
     parser.add_argument('--plot_time', default=False, action='store_true')
-    parser.add_argument('--plot_reward', default=True, action='store_true')
+    parser.add_argument('--plot_reward', default=False, action='store_true')
 
 
     parser.add_argument('--plot_train', default=True, action='store_true')
@@ -46,6 +46,14 @@ def main():
     models = [
         "Proposed_5",
         "SARL_5"
+    ]
+    log_files = [
+        "data/zara_our.log",
+        "data/zara_base.log"
+    ]
+    models = [
+        "Proposed",
+        "SARL"
     ]
 
     max_episodes = 10000
