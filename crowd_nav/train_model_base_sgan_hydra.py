@@ -71,7 +71,7 @@ def my_app(cfg: DictConfig) -> None:
     policy_config = configparser.RawConfigParser()
     policy_config.read(policy_config_file)
     policy.configure(policy_config)
-    policy.set_device(args.device)
+    policy.set_device(device)
     policy.kinematics = args.kinematics
 
     # configure environment
