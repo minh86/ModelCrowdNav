@@ -35,26 +35,26 @@ def main():
          "data/sarl5.log", "data/sarl10.log", "data/sarl15.log",
     ]
     models = [
-        "Proposed_5", "Proposed_10", "Proposed_15",
+        "SARL_SCG_5", "SARL_SCG_10", "SARL_SCG_15",
         "SARL_5", "SARL_10", "SARL_15",
     ]
 
-    log_files = [
-        "data/reinit5.log",
-        "data/sarl5.log"
-    ]
-    models = [
-        "Proposed_5",
-        "SARL_5"
-    ]
-    log_files = [
-        "data/zara_our.log",
-        "data/zara_base.log"
-    ]
-    models = [
-        "Proposed",
-        "SARL"
-    ]
+    # log_files = [
+    #     "data/reinit5.log",
+    #     "data/sarl5.log"
+    # ]
+    # models = [
+    #     "SARL_SCG_5",
+    #     "SARL_5"
+    # ]
+    # log_files = [
+    #     "data/zara_our.log",
+    #     "data/zara_base.log"
+    # ]
+    # models = [
+    #     "SARL_SCG",
+    #     "SARL"
+    # ]
 
     max_episodes = 10000
 
@@ -134,7 +134,7 @@ def main():
             ax1.legend(ax1_legends)
             ax1.set_xlabel('Episodes')
             ax1.set_ylabel('Success Rate')
-            ax1.set_title('Success rate')
+            # ax1.set_title('Success rate')
 
         # plot time
         if args.plot_time:
@@ -147,7 +147,7 @@ def main():
             ax2.legend(ax2_legends)
             ax2.set_xlabel('Episodes')
             ax2.set_ylabel('Time(s)')
-            ax2.set_title("Robot's Time to Reach Goal")
+            # ax2.set_title("Robot's Time to Reach Goal")
 
         # plot cr
         if args.plot_cr:
@@ -160,7 +160,7 @@ def main():
             ax3.legend(ax3_legends)
             ax3.set_xlabel('Episodes')
             ax3.set_ylabel('Collision Rate')
-            ax3.set_title('Collision Rate')
+            # ax3.set_title('Collision Rate')
 
         # plot reward
         if args.plot_reward:
@@ -173,14 +173,14 @@ def main():
             ax4.legend(ax4_legends)
             ax4.set_xlabel('Episodes')
             ax4.set_ylabel('Reward')
-            ax4.set_title('Cumulative Discounted Reward')
+            # ax4.set_title('Cumulative Discounted Reward')
 
     # plt.show()
     tag="train"
     if args.plot_reward:
         tag="reward"
     output_file = os.path.join(args.output_dir, "plot_%s.pdf" % (tag))
-    plt.savefig(output_file, format="pdf")
+    plt.savefig(output_file, format="pdf", bbox_inches='tight',  pad_inches=0)
 
 if __name__ == '__main__':
     main()

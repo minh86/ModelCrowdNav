@@ -21,3 +21,7 @@ configs_test/
 # notebook
 *.ipynb
 .neptune/
+
+# hydra
+outputs/
+runs/

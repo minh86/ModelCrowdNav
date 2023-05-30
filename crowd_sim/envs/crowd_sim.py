@@ -14,6 +14,7 @@ import torch
 
 class CrowdSim(gym.Env):
     metadata = {'render.modes': ['human']}
+    #  calculate to
 
     def __init__(self):
         """

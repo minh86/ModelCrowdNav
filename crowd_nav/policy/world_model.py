@@ -131,11 +131,10 @@ def get_generator(checkpoint, device):
     return generator
 
 class SGANWorld(nn.Module):
-    def __init__(self, modelPath, dataFile, device, obs_len=8, pred_len=1, skip=1, delim='tab', time_step=0.4,
+    def __init__(self, dataFile, device, obs_len=8, pred_len=1, skip=1, delim='tab', time_step=0.4,
                  pretrainPath=""):
         super().__init__()
         self.model = None
-        self.modelPath = modelPath
         self.dataFile = dataFile
         self.device = device
         self.obs_len = obs_len
@@ -146,7 +145,7 @@ class SGANWorld(nn.Module):
         self.generator = None
         self.time_step = time_step
         if pretrainPath != "":
-            logging.info("Loading SGAN pretrain: %s" % pretrainPath)
+            logging.info("Loading SGAN pretrain generator: %s" % pretrainPath)
             checkpoint = torch.load(pretrainPath, map_location=device)
             self.generator = get_generator(checkpoint, device)
 
