@@ -389,7 +389,7 @@ class TrajectoryGenerator(nn.Module):
             num_layers=num_layers,
             dropout=dropout,
             device=device
-        )
+        ).to(self.device)
 
         self.decoder = Decoder(
             pred_len,
@@ -406,7 +406,7 @@ class TrajectoryGenerator(nn.Module):
             grid_size=grid_size,
             neighborhood_size=neighborhood_size,
             device=device
-        )
+        ).to(self.device)
 
         if pooling_type == 'pool_net':
             self.pool_net = PoolHiddenNet(
@@ -416,7 +416,7 @@ class TrajectoryGenerator(nn.Module):
                 bottleneck_dim=bottleneck_dim,
                 activation=activation,
                 batch_norm=batch_norm
-            )
+            ).to(self.device)
         elif pooling_type == 'spool':
             self.pool_net = SocialPooling(
                 h_dim=encoder_h_dim,
@@ -425,7 +425,7 @@ class TrajectoryGenerator(nn.Module):
                 dropout=dropout,
                 neighborhood_size=neighborhood_size,
                 grid_size=grid_size
-            )
+            ).to(self.device)
 
         if self.noise_dim[0] == 0:
             self.noise_dim = None
@@ -449,6 +449,7 @@ class TrajectoryGenerator(nn.Module):
                 batch_norm=batch_norm,
                 dropout=dropout
             )
+            self.mlp_decoder_context.to(self.device)
 
     def add_noise(self, _input, seq_start_end, user_noise=None):
         """
@@ -575,7 +576,7 @@ class TrajectoryDiscriminator(nn.Module):
             num_layers=num_layers,
             dropout=dropout,
             device=self.device
-        )
+        ).to(self.device)
 
         real_classifier_dims = [h_dim, mlp_dim, 1]
         self.real_classifier = make_mlp(
@@ -583,7 +584,8 @@ class TrajectoryDiscriminator(nn.Module):
             activation=activation,
             batch_norm=batch_norm,
             dropout=dropout
-        )
+        ).to(self.device)
+
         if d_type == 'global':
             mlp_pool_dims = [h_dim + embedding_dim, mlp_dim, h_dim]
             self.pool_net = PoolHiddenNet(
@@ -593,7 +595,7 @@ class TrajectoryDiscriminator(nn.Module):
                 bottleneck_dim=h_dim,
                 activation=activation,
                 batch_norm=batch_norm
-            )
+            ).to(self.device)
 
     def forward(self, traj, traj_rel, seq_start_end=None):
         """

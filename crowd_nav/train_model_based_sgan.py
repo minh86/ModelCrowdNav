@@ -204,7 +204,7 @@ if not policy.multiagent_training:
     env_sim.human_num = 1
 env_sim.set_robot(robot)
 env_sim.device = device
-model_sim = SGANWorld(os.path.join(args.output_dir, 'generator.pt'), cacheFile_generate, device,
+model_sim = SGANWorld(cacheFile_generate, device,
                       obs_len=args.obs_len, time_step=env_sim.time_step, pretrainPath=args.pretrainPath)# SGAN model
 env_sim.sim_world = model_sim
 env.device = device
