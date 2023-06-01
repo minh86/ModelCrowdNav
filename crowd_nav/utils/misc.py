@@ -105,7 +105,7 @@ def GetRealData(dataset_file, phase="train", capacity=10000, stride=-1, windows_
         cacheFrames = np.unique(cacheFrames, axis=0)
         fcount = 0
         for full_scene in reader.j_full_durations:
-            filterFrames = [c for c in cacheFrames if full_scene[0] <= c[0] <= full_scene[1]]
+            filterFrames = [c for c in cacheFrames if full_scene[0] <= c[0] <= full_scene[1]] # filter continuous frames
             if len(filterFrames)>0:
                 fcount += 1
                 with open(os.path.join(cacheFile, str(fcount) + ".txt"), 'w') as cache_file_h:

@@ -202,7 +202,7 @@ def my_app(cfg: DictConfig) -> None:
     if not args.use_dataset:
         logging.info("Collect %s trajectories from simulation..." % (sample_episodes_in_real_before_train))
         explorer.run_k_episodes(sample_episodes_in_real_before_train, 'train', update_memory=False, update_raw_ob=True,
-                                stay=True)
+                                stay=True, cacheFile=cacheFile_train)
     else:  # -----------  Using trajnet++ dataset  ------------
         train_sl = None
         test_sl = None

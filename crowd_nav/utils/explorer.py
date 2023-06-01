@@ -1,5 +1,6 @@
 import logging
 import copy
+import os
 
 import numpy as np
 import torch
@@ -33,7 +34,8 @@ class Explorer(object):
 
     # @profile
     def run_k_episodes(self, k, phase, update_memory=False, imitation_learning=False, episode=None,
-                       print_failure=False,update_raw_ob=False, stay=False, returnRate=True, test_case=None, returnNav=False):
+                       print_failure=False,update_raw_ob=False, stay=False, returnRate=True, test_case=None, returnNav=False,
+                       cacheFile=None):
         self.robot.policy.set_phase(phase)
         success_times = []
         collision_times = []
@@ -47,6 +49,7 @@ class Explorer(object):
         collision_cases = []
         timeout_cases = []
         avg_nav_time = np.NaN
+        fcount = 0
         for i in tqdm(range(k)):
             ob = self.env.reset(phase, test_case=test_case)
             done = False
@@ -54,6 +57,8 @@ class Explorer(object):
             actions = []
             rewards = []
             current_s = None
+            cacheFrames = []
+            frameid = 0
             while not done:
                 if stay:
                     holonomic = True if self.robot.policy.kinematics == 'holonomic' else False
@@ -65,6 +70,11 @@ class Explorer(object):
                 next_s = [tmpo.getvalue() for tmpo in ob]
                 next_action = [s[2:] for s in next_s]
                 next_action = next_action[:len(current_s)]
+
+                # Store observation for sgan dataloader
+                frameid += 10
+                for p_id, tmp_pes in enumerate(ob):
+                    cacheFrames.append([frameid, p_id, tmp_pes.px, tmp_pes.py])
 
                 # Store observation for generating data
                 if self.raw_memory is not None:
@@ -101,6 +111,15 @@ class Explorer(object):
                 if isinstance(info, ReachGoal) or isinstance(info, Collision):
                     # only add positive(success) or negative(collision) experience in experience set
                     self.update_memory(states, actions, rewards, imitation_learning)
+
+            # Save to file for sgan
+            if cacheFile is not None:
+                fcount += 1
+                with open(os.path.join(cacheFile, str(fcount) + ".txt"), 'w') as cache_file_h:
+                    for frame in cacheFrames:
+                        cache_file_h.write(
+                            "%s\t%s\t%s\t%s\n" % (frame[0], frame[1], frame[2], frame[3]))
+
 
             cumulative_rewards.append(sum([pow(self.gamma, t * self.robot.time_step * self.robot.v_pref)
                                            * reward for t, reward in enumerate(rewards)]))
